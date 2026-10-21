@@ -1,0 +1,45 @@
+const fs = require('fs');
+const path = require('path');
+const { initializeApp, cert, getApps } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+
+function loadServiceAccount({ serviceAccountPath, serviceAccountJson }) {
+  if (serviceAccountJson) {
+    return JSON.parse(serviceAccountJson);
+  }
+  if (serviceAccountPath) {
+    const fullPath = path.resolve(serviceAccountPath);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`Firebase service account file not found: ${fullPath}`);
+    }
+    return JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+  }
+  throw new Error(
+    'Firebase Admin credentials missing. Set FIREBASE_SERVICE_ACCOUNT_PATH (or FIREBASE_SERVICE_ACCOUNT_JSON).'
+  );
+}
+
+// Firebase Auth stays the source of truth for accounts and passwords.
+function createFirebaseUsers(firebaseConfig) {
+  const app = getApps()[0] || initializeApp({ credential: cert(loadServiceAccount(firebaseConfig)) });
+  const auth = getAuth(app);
+
+  return {
+    async findByEmail(email) {
+      try {
+        const user = await auth.getUserByEmail(email);
+        return user.disabled ? null : { uid: user.uid, email: user.email };
+      } catch (error) {
+        if (error?.code === 'auth/user-not-found') return null;
+        throw error;
+      }
+    },
+    async setPassword(uid, password) {
+      await auth.updateUser(uid, { password });
+      // Sign the account out of every other device.
+      await auth.revokeRefreshTokens(uid);
+    },
+  };
+}
+
+module.exports = { createFirebaseUsers };
