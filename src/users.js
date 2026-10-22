@@ -39,6 +39,10 @@ function createFirebaseUsers(firebaseConfig) {
       // Sign the account out of every other device.
       await auth.revokeRefreshTokens(uid);
     },
+    async verifyIdToken(idToken) {
+      const decoded = await auth.verifyIdToken(idToken);
+      return { uid: decoded.uid, email: decoded.email || '' };
+    },
   };
 }
 

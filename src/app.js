@@ -1,13 +1,22 @@
 const express = require('express');
 const cors = require('cors');
 const { createPasswordReset, ResetError } = require('./passwordReset');
+const { createNotifications } = require('./notifications');
+
+class ApiError extends Error {
+  constructor(status, code, message) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
 
 function createApp({ redis, mailer, users, config }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
   app.use(cors());
-  app.use(express.json({ limit: '10kb' }));
+  app.use(express.json({ limit: '32kb' }));
 
   const reset = createPasswordReset({
     redis,
@@ -16,8 +25,24 @@ function createApp({ redis, mailer, users, config }) {
     secret: config.otpSecret,
     settings: config.reset,
   });
+  const notifications = createNotifications({ redis });
 
   const clientIp = (req) => req.ip || req.socket.remoteAddress || 'unknown';
+
+  async function requireUser(req, _res, next) {
+    try {
+      const header = req.get('authorization') || '';
+      const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+      if (!token) {
+        throw new ApiError(401, 'UNAUTHORIZED', 'Sign in required.');
+      }
+      req.user = await users.verifyIdToken(token);
+      next();
+    } catch (error) {
+      if (error instanceof ApiError) return next(error);
+      next(new ApiError(401, 'UNAUTHORIZED', 'Sign in required.'));
+    }
+  }
 
   app.get('/health', async (_req, res) => {
     try {
@@ -51,6 +76,73 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, message: 'Your password has been updated.' });
   });
 
+  app.get('/api/notifications/preferences', requireUser, async (req, res) => {
+    const preferences = await notifications.getPreferences(req.user.uid);
+    res.json({ ok: true, preferences, defaults: notifications.defaults });
+  });
+
+  app.put('/api/notifications/preferences', requireUser, async (req, res) => {
+    const preferences = await notifications.savePreferences(req.user.uid, req.body || {});
+    res.json({ ok: true, preferences });
+  });
+
+  app.post('/api/notifications/preferences/reset', requireUser, async (req, res) => {
+    const preferences = await notifications.resetPreferences(req.user.uid);
+    res.json({ ok: true, preferences });
+  });
+
+  app.get('/api/notifications/feed', requireUser, async (req, res) => {
+    const items = await notifications.listFeed(req.user.uid);
+    res.json({ ok: true, items });
+  });
+
+  // Publish a domain event; only delivered if the user enabled that alert + a channel.
+  app.post('/api/notifications/events', requireUser, async (req, res) => {
+    const type = String(req.body?.type || '');
+    const title = String(req.body?.title || '').trim();
+    const body = String(req.body?.body || '').trim();
+    if (!type || !title || !body) {
+      throw new ApiError(400, 'INVALID_EVENT', 'type, title, and body are required.');
+    }
+    const result = await notifications.publishEvent({
+      uid: req.user.uid,
+      type,
+      title,
+      body,
+      meta: req.body?.meta || {},
+    });
+    res.json({ ok: true, ...result });
+  });
+
+  // Real-time stream (SSE). Expo Go can also poll /feed; this is for live updates.
+  app.get('/api/notifications/stream', requireUser, async (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    const send = (payload) => {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    send({ type: 'connected', at: new Date().toISOString() });
+    const existing = await notifications.listFeed(req.user.uid, 10);
+    send({ type: 'snapshot', items: existing });
+
+    const unsubscribe = notifications.subscribe(req.user.uid, (item) => {
+      send({ type: 'notification', item });
+    });
+
+    const heartbeat = setInterval(() => {
+      res.write(`: ping\n\n`);
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+  });
+
   app.use((_req, res) => {
     res.status(404).json({ ok: false, error: 'NOT_FOUND', message: 'Not found.' });
   });
@@ -58,13 +150,13 @@ function createApp({ redis, mailer, users, config }) {
   // Express needs all four arguments to treat this as the error handler.
   // eslint-disable-next-line no-unused-vars
   app.use((error, _req, res, _next) => {
-    if (error instanceof ResetError) {
-      if (error.extra.retryAfterSeconds) {
+    if (error instanceof ResetError || error instanceof ApiError) {
+      if (error.extra?.retryAfterSeconds) {
         res.set('Retry-After', String(error.extra.retryAfterSeconds));
       }
       return res
         .status(error.status)
-        .json({ ok: false, error: error.code, message: error.message, ...error.extra });
+        .json({ ok: false, error: error.code, message: error.message, ...(error.extra || {}) });
     }
     if (error?.type === 'entity.parse.failed') {
       return res.status(400).json({ ok: false, error: 'BAD_JSON', message: 'Invalid request body.' });
