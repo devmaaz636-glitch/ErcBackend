@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { createPasswordReset, ResetError } = require('./passwordReset');
 const { createNotifications } = require('./notifications');
+const { createClinicStore } = require('./clinicData');
 
 class ApiError extends Error {
   constructor(status, code, message) {
@@ -26,6 +27,7 @@ function createApp({ redis, mailer, users, config }) {
     settings: config.reset,
   });
   const notifications = createNotifications({ redis });
+  const clinic = createClinicStore();
 
   const clientIp = (req) => req.ip || req.socket.remoteAddress || 'unknown';
 
@@ -112,6 +114,41 @@ function createApp({ redis, mailer, users, config }) {
       meta: req.body?.meta || {},
     });
     res.json({ ok: true, ...result });
+  });
+
+  // ── Clinic domain (dynamic dashboard / appointments / branches / managers) ──
+  app.get('/api/clinic/dashboard', requireUser, (_req, res) => {
+    res.json({ ok: true, ...clinic.getDashboard() });
+  });
+
+  app.get('/api/clinic/appointments', requireUser, (_req, res) => {
+    res.json({ ok: true, ...clinic.listAppointments() });
+  });
+
+  app.get('/api/clinic/appointments/:id', requireUser, (req, res) => {
+    const item = clinic.getAppointment(req.params.id);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.get('/api/clinic/branches', requireUser, (_req, res) => {
+    res.json({ ok: true, ...clinic.listBranches() });
+  });
+
+  app.get('/api/clinic/branches/:id', requireUser, (req, res) => {
+    const item = clinic.getBranch(req.params.id);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Branch not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.get('/api/clinic/managers', requireUser, (_req, res) => {
+    res.json({ ok: true, ...clinic.listManagers() });
+  });
+
+  app.get('/api/clinic/managers/:id', requireUser, (req, res) => {
+    const item = clinic.getManager(req.params.id);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Clinic manager not found.');
+    res.json({ ok: true, item });
   });
 
   // Real-time stream (SSE). Expo Go can also poll /feed; this is for live updates.
