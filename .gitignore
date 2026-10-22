@@ -1,0 +1,35 @@
+# Secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+
+# Build files
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+
+# Private keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Firebase service account
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+.env
+.env.*
+!.env.example
+node_modules/
+firebase-service-account.json
+*-firebase-adminsdk-*.json
