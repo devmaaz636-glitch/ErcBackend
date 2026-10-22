@@ -7,6 +7,7 @@ const DEFAULT_PREFERENCES = {
   alerts: {
     refund: true,
     accountRequests: false,
+    appointmentsThreshold: false,
     revenueThreshold: false,
     capacityThreshold: false,
     booking: false,
