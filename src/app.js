@@ -26,7 +26,24 @@ function createApp({ redis, mailer, users, config }) {
     secret: config.otpSecret,
     settings: config.reset,
   });
-  const notifications = createNotifications({ redis });
+  const notifications = createNotifications({
+    redis,
+    mailer,
+    resolveUserEmail: async (uid) => {
+      try {
+        if (typeof users.getUserEmail === 'function') {
+          return users.getUserEmail(uid);
+        }
+        if (typeof users.getUser === 'function') {
+          const record = await users.getUser(uid);
+          return record?.email || null;
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    },
+  });
   const clinic = createClinicStore();
 
   const clientIp = (req) => req.ip || req.socket.remoteAddress || 'unknown';
@@ -98,7 +115,24 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, items });
   });
 
-  // Publish a domain event; only delivered if the user enabled that alert + a channel.
+  app.post('/api/notifications/devices', requireUser, async (req, res) => {
+    const token = String(req.body?.token || '').trim();
+    if (!token) throw new ApiError(400, 'INVALID_TOKEN', 'Push token is required.');
+    const result = await notifications.registerDevice(req.user.uid, {
+      token,
+      platform: req.body?.platform,
+    });
+    res.json({ ok: true, ...result });
+  });
+
+  app.delete('/api/notifications/devices', requireUser, async (req, res) => {
+    const token = String(req.body?.token || '').trim();
+    if (!token) throw new ApiError(400, 'INVALID_TOKEN', 'Push token is required.');
+    await notifications.unregisterDevice(req.user.uid, token);
+    res.json({ ok: true });
+  });
+
+  // Publish a domain event; delivered on enabled channels (inApp / email / push).
   app.post('/api/notifications/events', requireUser, async (req, res) => {
     const type = String(req.body?.type || '');
     const title = String(req.body?.title || '').trim();
@@ -112,6 +146,7 @@ function createApp({ redis, mailer, users, config }) {
       title,
       body,
       meta: req.body?.meta || {},
+      email: req.user.email || req.body?.email,
     });
     res.json({ ok: true, ...result });
   });
