@@ -141,6 +141,51 @@ function createNotifications({ redis, mailer, resolveUserEmail }) {
       .filter(Boolean);
   }
 
+  /** Mark feed items read. Pass ids to target specific items; omit / empty = mark all. */
+  async function markFeedRead(uid, ids) {
+    const key = feedKey(uid);
+    const rows = await redis.lrange(key, 0, 99);
+    if (!rows.length) return { items: [], marked: 0 };
+
+    const idSet =
+      Array.isArray(ids) && ids.length > 0 ? new Set(ids.map(String)) : null;
+
+    let marked = 0;
+    const next = rows.map((row) => {
+      try {
+        const item = JSON.parse(row);
+        const shouldMark = !idSet || idSet.has(String(item.id));
+        if (shouldMark && item && item.read !== true) {
+          marked += 1;
+          return JSON.stringify({ ...item, read: true });
+        }
+        return row;
+      } catch {
+        return row;
+      }
+    });
+
+    if (marked > 0) {
+      const multi = redis.multi();
+      multi.del(key);
+      // `next` is already newest-first (same order as LRANGE after LPUSH).
+      if (next.length) multi.rpush(key, ...next);
+      await multi.exec();
+    }
+
+    const items = next
+      .map((row) => {
+        try {
+          return JSON.parse(row);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    return { items, marked };
+  }
+
   async function registerDevice(uid, { token, platform }) {
     const value = String(token || '').trim();
     if (!value) return { ok: false };
@@ -271,6 +316,7 @@ function createNotifications({ redis, mailer, resolveUserEmail }) {
     savePreferences,
     resetPreferences,
     listFeed,
+    markFeedRead,
     publishEvent,
     subscribe,
     registerDevice,

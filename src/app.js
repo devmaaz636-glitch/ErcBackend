@@ -115,6 +115,12 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, items });
   });
 
+  app.post('/api/notifications/read', requireUser, async (req, res) => {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : undefined;
+    const result = await notifications.markFeedRead(req.user.uid, ids);
+    res.json({ ok: true, ...result });
+  });
+
   app.post('/api/notifications/devices', requireUser, async (req, res) => {
     const token = String(req.body?.token || '').trim();
     if (!token) throw new ApiError(400, 'INVALID_TOKEN', 'Push token is required.');
