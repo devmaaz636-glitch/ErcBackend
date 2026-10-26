@@ -27,6 +27,7 @@ async function main() {
     await redis.ping();
     console.log('[redis] connected');
   } catch (error) {
+
     fail(`Could not connect to Redis: ${error.message}`);
   }
 
