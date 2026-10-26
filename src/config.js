@@ -15,6 +15,10 @@ const config = {
   port: int('PORT', 4000),
   // Number of proxy hops in front of the server (0 when the app talks to it directly).
   trustProxy: Number.parseInt(process.env.TRUST_PROXY || '0', 10) || 0,
+  corsOrigins: (process.env.CORS_ORIGINS || (process.env.NODE_ENV === 'production' ? '' : '*'))
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 
   redisUrl: process.env.REDIS_URL || '',
   otpSecret: process.env.OTP_SECRET || '',

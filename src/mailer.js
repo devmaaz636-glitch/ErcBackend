@@ -30,6 +30,9 @@ function createMailer(smtp, { isProduction }) {
       async sendResetCode({ to, code, minutes }) {
         console.log(`[mail:dev] Reset code for ${to}: ${code} (expires in ${minutes} min)`);
       },
+      async sendMail({ to, subject, text }) {
+        console.log(`[mail:dev] To ${to}: ${subject}\n${text || ''}`);
+      },
       async sendMail({ to, subject, text, html }) {
         console.log(`[mail:dev] To ${to}: ${subject}\n${text || ''}`);
       },
@@ -50,6 +53,9 @@ function createMailer(smtp, { isProduction }) {
   return {
     async sendResetCode({ to, code, minutes }) {
       const { subject, text, html } = resetEmail({ code, minutes });
+      await transport.sendMail({ from: smtp.from, to, subject, text, html });
+    },
+    async sendMail({ to, subject, text, html }) {
       await transport.sendMail({ from: smtp.from, to, subject, text, html });
     },
     async sendMail({ to, subject, text, html }) {

@@ -78,9 +78,21 @@ async function sendExpoPush(tokens, { title, body, data }) {
       body: JSON.stringify(messages),
     });
     const json = await res.json().catch(() => ({}));
-    return { sent: tokens.length, result: json };
+    const tickets = Array.isArray(json?.data) ? json.data : [];
+    const accepted = tickets.filter((ticket) => ticket?.status === 'ok').length;
+    const rejected = tickets.filter((ticket) => ticket?.status === 'error').length;
+    return { sent: accepted, rejected, result: json };
   } catch (error) {
     return { sent: 0, error: error.message };
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
   }
 }
 
@@ -266,7 +278,7 @@ function createNotifications({ redis, mailer, resolveUserEmail }) {
             to,
             subject: `[ERC] ${title}`,
             text: body,
-            html: `<p>${body}</p><p style="color:#8D8680;font-size:12px">Enfield Royal Clinics</p>`,
+            html: `<p>${escapeHtml(body)}</p><p style="color:#8D8680;font-size:12px">Enfield Royal Clinics</p>`,
           });
           delivery.email = true;
         }

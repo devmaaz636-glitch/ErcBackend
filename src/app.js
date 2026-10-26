@@ -16,7 +16,17 @@ function createApp({ redis, mailer, users, config }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
-  app.use(cors());
+  app.use(
+    cors({
+      origin(origin, callback) {
+        if (!origin || config.corsOrigins.includes('*') || config.corsOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new ApiError(403, 'CORS_FORBIDDEN', 'Origin is not allowed.'));
+      },
+    })
+  );
   app.use(express.json({ limit: '32kb' }));
 
   const reset = createPasswordReset({
