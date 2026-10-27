@@ -103,6 +103,22 @@ function createClinicStore(options = {}) {
       branchId: 'br-riyadh',
     },
     {
+      id: 'doc-3b',
+      name: 'Dr. Layla Hassan',
+      specialty: 'Dermatologist',
+      consults: 41,
+      score: 91,
+      branchId: 'br-riyadh',
+    },
+    {
+      id: 'doc-3c',
+      name: 'Dr. Yusuf Alharbi',
+      specialty: 'Hair Specialist',
+      consults: 33,
+      score: 87,
+      branchId: 'br-riyadh',
+    },
+    {
       id: 'doc-4',
       name: 'Dr. Hassan Reza',
       specialty: 'Dentist',
@@ -232,7 +248,7 @@ function createClinicStore(options = {}) {
       patient: 'Sara Ahmed',
       patientId: 'PT-2070',
       code: 'APT-0003',
-      treatment: 'Laser Session',
+      treatment: 'Laser Treatment',
       department: 'Laser',
       time: '09:00 AM',
       endTime: '09:45 AM',
@@ -240,10 +256,100 @@ function createClinicStore(options = {}) {
       doctorSpecialty: 'Laser Specialist',
       clinic: 'Riyadh Clinic',
       branchId: 'br-riyadh',
-      status: 'canceled',
-      paymentStatus: 'refunded',
+      status: 'completed',
+      paymentStatus: 'paid',
       date: daysFrom(today, -3),
       bookingDate: daysFrom(today, -8),
+    },
+    {
+      id: 'apt-3b',
+      patient: 'Khalid Mansour',
+      patientId: 'PT-2110',
+      code: 'APT-0110',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      time: '10:00 AM',
+      endTime: '10:45 AM',
+      doctor: 'Dr. Nora Ahmed',
+      doctorSpecialty: 'Laser Specialist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'upcoming',
+      paymentStatus: 'paid',
+      date: daysFrom(today, 0),
+      bookingDate: daysFrom(today, -2),
+    },
+    {
+      id: 'apt-3c',
+      patient: 'Maha Alotaibi',
+      patientId: 'PT-2111',
+      code: 'APT-0111',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      time: '11:30 AM',
+      endTime: '12:15 PM',
+      doctor: 'Dr. Layla Hassan',
+      doctorSpecialty: 'Dermatologist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'upcoming',
+      paymentStatus: 'paid',
+      date: daysFrom(today, 0),
+      bookingDate: daysFrom(today, -1),
+    },
+    {
+      id: 'apt-3d',
+      patient: 'Noura Saleh',
+      patientId: 'PT-2112',
+      code: 'APT-0112',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      time: '01:00 PM',
+      endTime: '01:45 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'completed',
+      paymentStatus: 'paid',
+      date: daysFrom(today, -1),
+      bookingDate: daysFrom(today, -5),
+    },
+    {
+      id: 'apt-3e',
+      patient: 'Faisal Nasser',
+      patientId: 'PT-2113',
+      code: 'APT-0113',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      time: '03:00 PM',
+      endTime: '03:45 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'upcoming',
+      paymentStatus: 'pending',
+      date: daysFrom(today, 1),
+      bookingDate: daysFrom(today, -2),
+    },
+    {
+      id: 'apt-3f',
+      patient: 'Reem Abdullah',
+      patientId: 'PT-2114',
+      code: 'APT-0114',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      time: '04:00 PM',
+      endTime: '04:45 PM',
+      doctor: 'Dr. Layla Hassan',
+      doctorSpecialty: 'Dermatologist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'canceled',
+      paymentStatus: 'refunded',
+      date: daysFrom(today, -2),
+      bookingDate: daysFrom(today, -6),
     },
     {
       id: 'apt-4',
@@ -342,20 +448,139 @@ function createClinicStore(options = {}) {
       requestedAt: daysFrom(today, 0),
       note: 'Patient requested the earliest available morning slot.',
     },
+    {
+      id: 'req-riyadh-1',
+      appointmentId: 'APT-2201',
+      patient: 'Amina Al Saud',
+      patientId: 'PT-2201',
+      patientPhone: '+966 55 XXX XXXX',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      duration: '45 Min',
+      treatmentPrice: 'SAR 750',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '10:00 AM',
+      doctor: 'Dr. Nora Ahmed',
+      doctorSpecialty: 'Laser Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 150',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Patient prefers a morning laser slot for approval.',
+    },
+    {
+      id: 'req-riyadh-2',
+      appointmentId: 'APT-2202',
+      patient: 'Hassan Almutairi',
+      patientId: 'PT-2202',
+      patientPhone: '+966 50 XXX XXXX',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      duration: '60 Min',
+      treatmentPrice: 'SAR 900',
+      requestedDate: daysFrom(today, 2),
+      requestedTime: '02:30 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 200',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Needs clinic manager approval before deposit.',
+    },
+    {
+      id: 'req-riyadh-3',
+      appointmentId: 'APT-2203',
+      patient: 'Sara Alqahtani',
+      patientId: 'PT-2203',
+      patientPhone: '+966 54 XXX XXXX',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      duration: '30 Min',
+      treatmentPrice: 'SAR 400',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '04:00 PM',
+      doctor: 'Dr. Layla Hassan',
+      doctorSpecialty: 'Dermatologist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 100',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Follow-up consultation awaiting approval.',
+    },
+    {
+      id: 'req-riyadh-4',
+      appointmentId: 'APT-2204',
+      patient: 'Omar Fahad',
+      patientId: 'PT-2204',
+      patientPhone: '+966 56 XXX XXXX',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      duration: '30 Min',
+      treatmentPrice: 'SAR 650',
+      requestedDate: daysFrom(today, -1),
+      requestedTime: '11:00 AM',
+      doctor: 'Dr. Nora Ahmed',
+      doctorSpecialty: 'Laser Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Paid',
+      depositRequired: 'SAR 150',
+      status: 'approved',
+      requestedAt: daysFrom(today, -2),
+      reviewedAt: daysFrom(today, -1),
+      note: 'Approved by clinic manager.',
+    },
+    {
+      id: 'req-riyadh-5',
+      appointmentId: 'APT-2205',
+      patient: 'Lina Alharbi',
+      patientId: 'PT-2205',
+      patientPhone: '+966 58 XXX XXXX',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      duration: '60 Min',
+      treatmentPrice: 'SAR 900',
+      requestedDate: daysFrom(today, 3),
+      requestedTime: '01:00 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 200',
+      status: 'rescheduled',
+      requestedAt: daysFrom(today, -3),
+      reviewedAt: daysFrom(today, -1),
+      note: 'Patient asked for a later afternoon slot.',
+    },
   ];
 
+  const quotaPeriod = today.slice(0, 7);
   const treatmentQuotas = [
     {
       id: 'laser-treatment',
       name: 'Laser Treatment',
-      period: '2026-10',
+      period: quotaPeriod,
       quota: 124,
     },
     {
       id: 'hair-treatment',
       name: 'Hair Treatment',
-      period: '2026-10',
+      period: quotaPeriod,
       quota: 100,
+    },
+    {
+      id: 'dermatology-consultation',
+      name: 'Dermatology Consultation',
+      period: quotaPeriod,
+      quota: 80,
     },
   ];
 
@@ -650,24 +875,28 @@ function createClinicStore(options = {}) {
     const branchAppointments = scopedAppointments(branchId);
     const branchDoctors = doctors
       .filter((doctor) => doctor.branchId === branchId)
-      .map((doctor) => ({ ...doctor, clinic: branch.name }));
+      .map((doctor) => ({ ...doctor, clinic: branch.name }))
+      .sort((a, b) => (b.score || 0) - (a.score || 0));
     const period = today.slice(0, 7);
-    const treatments = [...new Set(branchAppointments.map((item) => item.treatment))].map((name) => {
-      const quota = treatmentQuotas.find((item) => item.name === name && item.period === period);
-      const sessions = branchAppointments.filter((item) => item.treatment === name).length;
-      const target = quota?.quota || 0;
-      return {
-        id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        name,
-        period,
-        sessions,
-        quota: target,
-        progress: target ? Math.min(1, sessions / target) : 0,
-        remaining: Math.max(0, target - sessions),
-        quotaConfigured: Boolean(quota),
-      };
-    });
+    const treatments = [...new Set(branchAppointments.map((item) => item.treatment))]
+      .map((name) => {
+        const quota = treatmentQuotas.find((item) => item.name === name && item.period === period);
+        const sessions = branchAppointments.filter((item) => item.treatment === name).length;
+        const target = quota?.quota || 0;
+        return {
+          id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name,
+          period,
+          sessions,
+          quota: target,
+          progress: target ? Math.min(1, sessions / target) : 0,
+          remaining: Math.max(0, target - sessions),
+          quotaConfigured: Boolean(quota),
+        };
+      })
+      .sort((a, b) => b.sessions - a.sessions);
     const branchRequests = appointmentRequests.filter((request) => request.branchId === branchId);
+    const pendingRequests = branchRequests.filter((request) => request.status === 'pending');
     const branchManagers = managers.filter((manager) => manager.branchId === branchId);
 
     return {
@@ -681,8 +910,8 @@ function createClinicStore(options = {}) {
       },
       stats: scopedAppointmentStats(branchId),
       appointments: branchAppointments.slice(0, 5),
-      appointmentRequests: branchRequests.filter((request) => request.status === 'pending'),
-      pendingApprovals: branchRequests.filter((request) => request.status === 'pending').length,
+      appointmentRequests: pendingRequests,
+      pendingApprovals: pendingRequests.length,
       doctors: branchDoctors,
       treatments,
       doctorsOnRoster: branchDoctors.length,
@@ -710,9 +939,26 @@ function createClinicStore(options = {}) {
       );
     },
     listManagerAppointmentRequests(branchId) {
-      return {
-        items: appointmentRequests.filter((request) => request.branchId === branchId),
-      };
+      const items = appointmentRequests
+        .filter((request) => request.branchId === branchId)
+        .map((request) => ({
+          ...request,
+          status: String(request.status || 'pending').toLowerCase(),
+          requestedTime: request.requestedTime || 'Time pending',
+          requestedDate: request.requestedDate || today,
+        }))
+        .sort((a, b) => {
+          const dateCmp = String(a.requestedDate).localeCompare(String(b.requestedDate));
+          if (dateCmp !== 0) return dateCmp;
+          return String(a.requestedTime).localeCompare(String(b.requestedTime));
+        });
+
+      const counts = { all: items.length, pending: 0, approved: 0, rescheduled: 0, rejected: 0 };
+      for (const item of items) {
+        if (counts[item.status] != null) counts[item.status] += 1;
+      }
+
+      return { items, counts };
     },
     getManagerAppointmentRequest(id, branchId) {
       return appointmentRequests.find(
@@ -725,7 +971,10 @@ function createClinicStore(options = {}) {
       );
       if (!request) return null;
       Object.assign(request, update);
-      return request;
+      if (update.status) {
+        request.status = String(update.status).toLowerCase();
+      }
+      return { ...request };
     },
     listManagerDoctors(branchId) {
       const clinic = branchById(branchId);
