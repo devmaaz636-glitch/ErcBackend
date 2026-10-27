@@ -14,12 +14,13 @@ class ApiError extends Error {
 
 function createApp({ redis, mailer, users, config }) {
   const app = express();
+  const corsOrigins = config.corsOrigins || ['*'];
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || config.corsOrigins.includes('*') || config.corsOrigins.includes(origin)) {
+        if (!origin || corsOrigins.includes('*') || corsOrigins.includes(origin)) {
           callback(null, true);
           return;
         }
@@ -65,12 +66,31 @@ function createApp({ redis, mailer, users, config }) {
       if (!token) {
         throw new ApiError(401, 'UNAUTHORIZED', 'Sign in required.');
       }
+
       req.user = await users.verifyIdToken(token);
       next();
     } catch (error) {
       if (error instanceof ApiError) return next(error);
       next(new ApiError(401, 'UNAUTHORIZED', 'Sign in required.'));
     }
+  }
+
+  function requireRole(...roles) {
+    return (req, _res, next) => {
+      if (!roles.includes(req.user?.role)) {
+        return next(new ApiError(403, 'FORBIDDEN', 'You do not have permission to access this resource.'));
+      }
+      next();
+    };
+  }
+
+  function requireManager(req, _res, next) {
+    if (req.user?.role !== 'clinic_manager' || !req.user.branchId) {
+      return next(
+        new ApiError(403, 'MANAGER_SCOPE_REQUIRED', 'A clinic manager account with an assigned clinic is required.')
+      );
+    }
+    next();
   }
 
   app.get('/health', async (_req, res) => {
@@ -103,6 +123,23 @@ function createApp({ redis, mailer, users, config }) {
   app.post('/api/auth/password-reset/confirm', async (req, res) => {
     await reset.confirmReset({ resetToken: req.body?.resetToken, password: req.body?.password });
     res.json({ ok: true, message: 'Your password has been updated.' });
+  });
+
+  app.get('/api/me', requireUser, async (req, res) => {
+    let profile = null;
+    if (typeof users.getUser === 'function') {
+      profile = await users.getUser(req.user.uid);
+    }
+    res.json({
+      ok: true,
+      user: {
+        ...req.user,
+        ...(profile || {}),
+        role: req.user.role,
+        branchId: req.user.branchId,
+        clinicId: req.user.clinicId,
+      },
+    });
   });
 
   app.get('/api/notifications/preferences', requireUser, async (req, res) => {
@@ -168,38 +205,102 @@ function createApp({ redis, mailer, users, config }) {
   });
 
   // ── Clinic domain (dynamic dashboard / appointments / branches / managers) ──
-  app.get('/api/clinic/dashboard', requireUser, (_req, res) => {
+  app.get('/api/clinic/dashboard', requireUser, requireRole('admin'), (_req, res) => {
     res.json({ ok: true, ...clinic.getDashboard() });
   });
 
-  app.get('/api/clinic/appointments', requireUser, (_req, res) => {
+  app.get('/api/clinic/appointments', requireUser, requireRole('admin'), (_req, res) => {
     res.json({ ok: true, ...clinic.listAppointments() });
   });
 
-  app.get('/api/clinic/appointments/:id', requireUser, (req, res) => {
+  app.get('/api/clinic/appointments/:id', requireUser, requireRole('admin'), (req, res) => {
     const item = clinic.getAppointment(req.params.id);
     if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
     res.json({ ok: true, item });
   });
 
-  app.get('/api/clinic/branches', requireUser, (_req, res) => {
+  app.get('/api/clinic/branches', requireUser, requireRole('admin'), (_req, res) => {
     res.json({ ok: true, ...clinic.listBranches() });
   });
 
-  app.get('/api/clinic/branches/:id', requireUser, (req, res) => {
+  app.get('/api/clinic/branches/:id', requireUser, requireRole('admin'), (req, res) => {
     const item = clinic.getBranch(req.params.id);
     if (!item) throw new ApiError(404, 'NOT_FOUND', 'Branch not found.');
     res.json({ ok: true, item });
   });
 
-  app.get('/api/clinic/managers', requireUser, (_req, res) => {
+  app.get('/api/clinic/managers', requireUser, requireRole('admin'), (_req, res) => {
     res.json({ ok: true, ...clinic.listManagers() });
   });
 
-  app.get('/api/clinic/managers/:id', requireUser, (req, res) => {
+  app.get('/api/clinic/managers/:id', requireUser, requireRole('admin'), (req, res) => {
     const item = clinic.getManager(req.params.id);
     if (!item) throw new ApiError(404, 'NOT_FOUND', 'Clinic manager not found.');
     res.json({ ok: true, item });
+  });
+
+  // Clinic-manager domain. All data is scoped from the verified token claim;
+  // the client cannot choose another clinic by passing a query parameter.
+  app.get('/api/manager/dashboard', requireUser, requireManager, (req, res) => {
+    const data = clinic.getManagerDashboard(req.user.branchId);
+    if (!data) throw new ApiError(403, 'CLINIC_NOT_FOUND', 'The assigned clinic could not be found.');
+    res.json({ ok: true, ...data });
+  });
+
+  app.get('/api/manager/appointments', requireUser, requireManager, (req, res) => {
+    res.json({ ok: true, ...clinic.listManagerAppointments(req.user.branchId) });
+  });
+
+  app.get('/api/manager/appointments/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.getManagerAppointment(req.params.id, req.user.branchId);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.get('/api/manager/appointment-requests', requireUser, requireManager, (req, res) => {
+    res.json({ ok: true, ...clinic.listManagerAppointmentRequests(req.user.branchId) });
+  });
+
+  app.get('/api/manager/appointment-requests/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.getManagerAppointmentRequest(req.params.id, req.user.branchId);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment request not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.patch('/api/manager/appointment-requests/:id', requireUser, requireManager, (req, res) => {
+    const action = String(req.body?.action || '').trim().toLowerCase();
+    const allowedActions = new Set(['approve', 'reject', 'reschedule']);
+    if (!allowedActions.has(action)) {
+      throw new ApiError(400, 'INVALID_ACTION', 'action must be approve, reject, or reschedule.');
+    }
+
+    const update = {
+      status: action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'rescheduled',
+      reviewedBy: req.user.uid,
+      reviewedAt: new Date().toISOString(),
+    };
+
+    if (action === 'reschedule') {
+      const requestedDate = String(req.body?.requestedDate || '').trim();
+      const requestedTime = String(req.body?.requestedTime || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate) || !requestedTime) {
+        throw new ApiError(400, 'INVALID_RESCHEDULE', 'requestedDate and requestedTime are required.');
+      }
+      update.requestedDate = requestedDate;
+      update.requestedTime = requestedTime;
+    }
+
+    const item = clinic.updateManagerAppointmentRequest(req.params.id, req.user.branchId, update);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment request not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.get('/api/manager/treatments', requireUser, requireManager, (req, res) => {
+    res.json({ ok: true, ...clinic.listManagerTreatments(req.user.branchId) });
+  });
+
+  app.get('/api/manager/doctors', requireUser, requireManager, (req, res) => {
+    res.json({ ok: true, ...clinic.listManagerDoctors(req.user.branchId) });
   });
 
   // Real-time stream (SSE). Expo Go can also poll /feed; this is for live updates.

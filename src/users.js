@@ -19,6 +19,17 @@ function loadServiceAccount({ serviceAccountPath, serviceAccountJson }) {
   );
 }
 
+function normalizeRole(value) {
+  const role = String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  if (role === 'admin' || role === 'regional_admin' || role === 'regionaladmin') {
+    return 'admin';
+  }
+  if (role === 'clinic_manager' || role === 'clinicmanager' || role === 'manager') {
+    return 'clinic_manager';
+  }
+  return 'unassigned';
+}
+
 // Firebase Auth stays the source of truth for accounts and passwords.
 function createFirebaseUsers(firebaseConfig) {
   const app = getApps()[0] || initializeApp({ credential: cert(loadServiceAccount(firebaseConfig)) });
@@ -45,9 +56,16 @@ function createFirebaseUsers(firebaseConfig) {
     },
     async verifyIdToken(idToken) {
       const decoded = await auth.verifyIdToken(idToken);
-      return { uid: decoded.uid, email: decoded.email || '' };
+      return {
+        uid: decoded.uid,
+        email: decoded.email || '',
+        role: normalizeRole(decoded.role || decoded['https://enfieldroyalclinic.com/role']),
+        clinicId: decoded.clinicId || decoded.branchId || null,
+        branchId: decoded.branchId || decoded.clinicId || null,
+        name: decoded.name || '',
+      };
     },
   };
 }
 
-module.exports = { createFirebaseUsers };
+module.exports = { createFirebaseUsers, loadServiceAccount, normalizeRole };

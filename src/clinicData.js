@@ -319,6 +319,46 @@ function createClinicStore(options = {}) {
     },
   ];
 
+  const appointmentRequests = [
+    {
+      id: 'req-1',
+      appointmentId: 'APT-1024',
+      patient: 'Maaz',
+      patientId: 'PT-2102',
+      patientPhone: '+971 50 XXX XXXX',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      duration: '30 Min',
+      treatmentPrice: 'AED 600',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '09:30 AM',
+      doctor: 'Dr. Sarah Malik',
+      doctorSpecialty: 'Laser Specialist',
+      branchId: 'br-dubai',
+      branch: 'Dubai Branch',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'AED 100',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Patient requested the earliest available morning slot.',
+    },
+  ];
+
+  const treatmentQuotas = [
+    {
+      id: 'laser-treatment',
+      name: 'Laser Treatment',
+      period: '2026-10',
+      quota: 124,
+    },
+    {
+      id: 'hair-treatment',
+      name: 'Hair Treatment',
+      period: '2026-10',
+      quota: 100,
+    },
+  ];
+
   const attention = [
     {
       id: 'att-1',
@@ -388,6 +428,48 @@ function createClinicStore(options = {}) {
         value: String(canceled).padStart(2, '0'),
         label: 'Canceled bookings',
         change: pctChange(canceled, Math.max(1, canceled - 1)),
+      },
+    ];
+  }
+
+  function scopedAppointments(branchId) {
+    return appointments.filter((appointment) => appointment.branchId === branchId);
+  }
+
+  function scopedAppointmentStats(branchId) {
+    const items = scopedAppointments(branchId);
+    const todayCount = items.filter((a) => a.date === today).length;
+    const upcoming = countByStatus(items, 'upcoming');
+    const completed = countByStatus(items, 'completed');
+    const canceled = countByStatus(items, 'canceled');
+    return [
+      {
+        id: 'today',
+        icon: 'calendar-outline',
+        value: String(todayCount).padStart(2, '0'),
+        label: "Today's Appointments",
+        change: 0,
+      },
+      {
+        id: 'upcoming',
+        icon: 'time-outline',
+        value: String(upcoming).padStart(2, '0'),
+        label: 'Upcoming Appointments',
+        change: 0,
+      },
+      {
+        id: 'completed',
+        icon: 'checkmark-circle-outline',
+        value: String(completed).padStart(2, '0'),
+        label: 'Completed Visits',
+        change: 0,
+      },
+      {
+        id: 'canceled',
+        icon: 'close-circle-outline',
+        value: String(canceled).padStart(2, '0'),
+        label: 'Canceled Bookings',
+        change: 0,
       },
     ];
   }
@@ -562,6 +644,53 @@ function createClinicStore(options = {}) {
     };
   }
 
+  function getManagerDashboard(branchId) {
+    const branch = enrichBranch(branchById(branchId));
+    if (!branch) return null;
+    const branchAppointments = scopedAppointments(branchId);
+    const branchDoctors = doctors
+      .filter((doctor) => doctor.branchId === branchId)
+      .map((doctor) => ({ ...doctor, clinic: branch.name }));
+    const period = today.slice(0, 7);
+    const treatments = [...new Set(branchAppointments.map((item) => item.treatment))].map((name) => {
+      const quota = treatmentQuotas.find((item) => item.name === name && item.period === period);
+      const sessions = branchAppointments.filter((item) => item.treatment === name).length;
+      const target = quota?.quota || 0;
+      return {
+        id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        name,
+        period,
+        sessions,
+        quota: target,
+        progress: target ? Math.min(1, sessions / target) : 0,
+        remaining: Math.max(0, target - sessions),
+        quotaConfigured: Boolean(quota),
+      };
+    });
+    const branchRequests = appointmentRequests.filter((request) => request.branchId === branchId);
+    const branchManagers = managers.filter((manager) => manager.branchId === branchId);
+
+    return {
+      clinic: {
+        id: branch.id,
+        name: branch.name,
+        city: branch.city,
+        region: branch.region,
+        address: branch.address,
+        status: branch.status,
+      },
+      stats: scopedAppointmentStats(branchId),
+      appointments: branchAppointments.slice(0, 5),
+      appointmentRequests: branchRequests.filter((request) => request.status === 'pending'),
+      pendingApprovals: branchRequests.filter((request) => request.status === 'pending').length,
+      doctors: branchDoctors,
+      treatments,
+      doctorsOnRoster: branchDoctors.length,
+      managers: branchManagers.map(enrichManager),
+      alerts: branch.alerts,
+    };
+  }
+
   return {
     getDashboard,
     listAppointments() {
@@ -569,6 +698,57 @@ function createClinicStore(options = {}) {
     },
     getAppointment(id) {
       return appointments.find((a) => a.id === id || a.code === id) || null;
+    },
+    getManagerDashboard,
+    listManagerAppointments(branchId) {
+      const items = scopedAppointments(branchId);
+      return { stats: scopedAppointmentStats(branchId), items };
+    },
+    getManagerAppointment(id, branchId) {
+      return (
+        scopedAppointments(branchId).find((a) => a.id === id || a.code === id) || null
+      );
+    },
+    listManagerAppointmentRequests(branchId) {
+      return {
+        items: appointmentRequests.filter((request) => request.branchId === branchId),
+      };
+    },
+    getManagerAppointmentRequest(id, branchId) {
+      return appointmentRequests.find(
+        (request) => request.id === id && request.branchId === branchId
+      ) || null;
+    },
+    updateManagerAppointmentRequest(id, branchId, update) {
+      const request = appointmentRequests.find(
+        (item) => item.id === id && item.branchId === branchId
+      );
+      if (!request) return null;
+      Object.assign(request, update);
+      return request;
+    },
+    listManagerDoctors(branchId) {
+      const clinic = branchById(branchId);
+      return {
+        items: doctors
+          .filter((doctor) => doctor.branchId === branchId)
+          .map((doctor) => ({ ...doctor, clinic: clinic?.name || null })),
+      };
+    },
+    listManagerTreatments(branchId) {
+      const items = scopedAppointments(branchId);
+      const grouped = new Map();
+      for (const appointment of items) {
+        const current = grouped.get(appointment.treatment) || {
+          id: appointment.treatment.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name: appointment.treatment,
+          department: appointment.department,
+          appointments: 0,
+        };
+        current.appointments += 1;
+        grouped.set(appointment.treatment, current);
+      }
+      return { items: [...grouped.values()] };
     },
     listBranches() {
       return { items: branches };
