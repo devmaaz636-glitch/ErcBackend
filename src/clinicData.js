@@ -584,6 +584,105 @@ function createClinicStore(options = {}) {
     },
   ];
 
+  /** Clinic-manager Treatments catalog (region currency + category chips). */
+  const TREATMENT_CATEGORIES = [
+    'Plastic Surgery',
+    'Cosmetic Injectables',
+    'Laser Treatments',
+    'Skincare',
+    'Dermatologists',
+    'Hair Transplant',
+    'Dental Treatments',
+    'Weight Loss',
+    'Gynecology',
+    'Regenerative',
+    'Physiotherapist',
+    'Home Healthcare',
+    'Intimate Surgery',
+  ];
+
+  const REGION_CURRENCY = {
+    UAE: 'AED',
+    KSA: 'SAR',
+    Oman: 'OMR',
+    Pakistan: 'PKR',
+    USA: 'USD',
+  };
+
+  const treatmentCatalog = [
+    { id: 'tx-laser-hair', name: 'Laser Hair Removal', category: 'Laser Treatments', durationMin: 30, basePrice: 500, status: 'active' },
+    { id: 'tx-laser-skin', name: 'Laser Skin Resurfacing', category: 'Laser Treatments', durationMin: 45, basePrice: 750, status: 'active' },
+    { id: 'tx-laser-pigment', name: 'Pigmentation Laser', category: 'Laser Treatments', durationMin: 40, basePrice: 650, status: 'active' },
+    { id: 'tx-botox', name: 'Botox Session', category: 'Cosmetic Injectables', durationMin: 25, basePrice: 900, status: 'active' },
+    { id: 'tx-filler', name: 'Dermal Fillers', category: 'Cosmetic Injectables', durationMin: 35, basePrice: 1200, status: 'active' },
+    { id: 'tx-rhino', name: 'Rhinoplasty Consult', category: 'Plastic Surgery', durationMin: 60, basePrice: 1500, status: 'active' },
+    { id: 'tx-lipo', name: 'Liposuction Review', category: 'Plastic Surgery', durationMin: 50, basePrice: 1800, status: 'active' },
+    { id: 'tx-facial', name: 'Hydra Facial', category: 'Skincare', durationMin: 40, basePrice: 350, status: 'active' },
+    { id: 'tx-peel', name: 'Chemical Peel', category: 'Skincare', durationMin: 30, basePrice: 280, status: 'active' },
+    { id: 'tx-derm-consult', name: 'Dermatology Consultation', category: 'Dermatologists', durationMin: 30, basePrice: 400, status: 'active' },
+    { id: 'tx-acne', name: 'Acne Treatment Plan', category: 'Dermatologists', durationMin: 35, basePrice: 450, status: 'active' },
+    { id: 'tx-hair-fuse', name: 'Hair Transplant Session', category: 'Hair Transplant', durationMin: 120, basePrice: 4500, status: 'active' },
+    { id: 'tx-prp-hair', name: 'PRP Hair Therapy', category: 'Hair Transplant', durationMin: 45, basePrice: 800, status: 'active' },
+    { id: 'tx-dental-clean', name: 'Dental Cleaning', category: 'Dental Treatments', durationMin: 40, basePrice: 300, status: 'active' },
+    { id: 'tx-whitening', name: 'Teeth Whitening', category: 'Dental Treatments', durationMin: 50, basePrice: 550, status: 'active' },
+    { id: 'tx-weight', name: 'Weight Loss Program', category: 'Weight Loss', durationMin: 45, basePrice: 600, status: 'active' },
+    { id: 'tx-gyn', name: 'Gynecology Consult', category: 'Gynecology', durationMin: 30, basePrice: 420, status: 'active' },
+    { id: 'tx-stem', name: 'Stem Cell Therapy', category: 'Regenerative', durationMin: 60, basePrice: 2200, status: 'active' },
+    { id: 'tx-physio', name: 'Physiotherapy Session', category: 'Physiotherapist', durationMin: 45, basePrice: 250, status: 'active' },
+    { id: 'tx-home', name: 'Home Care Visit', category: 'Home Healthcare', durationMin: 60, basePrice: 320, status: 'active' },
+    { id: 'tx-intimate', name: 'Intimate Surgery Consult', category: 'Intimate Surgery', durationMin: 40, basePrice: 1100, status: 'active' },
+  ];
+
+  /** Manager-created treatments (branch-scoped, absolute price). */
+  const customTreatments = [];
+
+  function regionPriceFactor(region) {
+    if (region === 'KSA') return 1.05;
+    if (region === 'Oman') return 0.1;
+    if (region === 'Pakistan') return 75;
+    if (region === 'USA') return 0.27;
+    return 1;
+  }
+
+  function parseDurationMinutes(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.max(1, Math.round(value));
+    const raw = String(value || '').trim();
+    const match = raw.match(/(\d+)/);
+    return match ? Math.max(1, Number(match[1])) : 30;
+  }
+
+  function formatTreatmentItem(treatment, branchId) {
+    const branch = branchById(branchId);
+    const region = branch?.region || treatment.region || 'UAE';
+    const currency = treatment.currency || REGION_CURRENCY[region] || 'AED';
+    const durationMin = treatment.durationMin || parseDurationMinutes(treatment.duration);
+    const price =
+      treatment.price != null
+        ? Number(treatment.price)
+        : Math.round((treatment.basePrice || 0) * regionPriceFactor(region));
+    return {
+      id: treatment.id,
+      name: treatment.name,
+      description: treatment.description || '',
+      category: treatment.category || treatment.department || 'Skincare',
+      department: treatment.department || treatment.category || 'Skincare',
+      durationMin,
+      duration: treatment.duration || `${durationMin} Minutes`,
+      price,
+      currency,
+      priceLabel: `${currency} ${Number(price).toLocaleString('en-US')}`,
+      unit: treatment.unit || treatment.session || 'Per Session',
+      session: treatment.session || treatment.unit || 'Per Session',
+      status: treatment.status || 'active',
+      branchId,
+      region,
+      imageKey: treatment.imageKey || 'treatmentimage',
+      imageUri: treatment.imageUri || null,
+      createdAt: treatment.createdAt || null,
+      custom: Boolean(treatment.custom),
+    };
+  }
+
   const attention = [
     {
       id: 'att-1',
@@ -985,19 +1084,85 @@ function createClinicStore(options = {}) {
       };
     },
     listManagerTreatments(branchId) {
-      const items = scopedAppointments(branchId);
-      const grouped = new Map();
-      for (const appointment of items) {
-        const current = grouped.get(appointment.treatment) || {
-          id: appointment.treatment.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          name: appointment.treatment,
-          department: appointment.department,
-          appointments: 0,
-        };
-        current.appointments += 1;
-        grouped.set(appointment.treatment, current);
+      const branch = branchById(branchId);
+      const region = branch?.region || 'UAE';
+      const currency = REGION_CURRENCY[region] || 'AED';
+
+      const catalogItems = treatmentCatalog.map((treatment) =>
+        formatTreatmentItem(treatment, branchId)
+      );
+      const customItems = customTreatments
+        .filter((treatment) => treatment.branchId === branchId)
+        .map((treatment) => formatTreatmentItem(treatment, branchId));
+
+      return {
+        categories: ['All', ...TREATMENT_CATEGORIES],
+        departments: TREATMENT_CATEGORIES,
+        currency,
+        region,
+        branch: branch
+          ? { id: branch.id, name: branch.name, city: branch.city, region: branch.region }
+          : null,
+        items: [...customItems, ...catalogItems],
+      };
+    },
+    getManagerTreatment(id, branchId) {
+      const custom = customTreatments.find(
+        (item) => item.id === id && item.branchId === branchId
+      );
+      if (custom) return formatTreatmentItem(custom, branchId);
+      const treatment = treatmentCatalog.find((item) => item.id === id);
+      if (!treatment) return null;
+      return formatTreatmentItem(treatment, branchId);
+    },
+    createManagerTreatment(branchId, input = {}) {
+      const branch = branchById(branchId);
+      if (!branch) return null;
+
+      const name = String(input.name || '').trim();
+      const description = String(input.description || '').trim();
+      const department = String(input.department || input.category || '').trim();
+      const category = TREATMENT_CATEGORIES.includes(department)
+        ? department
+        : department || 'Skincare';
+      const durationMin = parseDurationMinutes(input.duration || input.durationMin);
+      const price = Number(input.price);
+      const session = String(input.session || input.unit || 'Per Session').trim() || 'Per Session';
+      const currency = REGION_CURRENCY[branch.region] || 'AED';
+
+      if (!name) {
+        const error = new Error('Treatment name is required.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
       }
-      return { items: [...grouped.values()] };
+      if (!Number.isFinite(price) || price < 0) {
+        const error = new Error('Enter a valid treatment price.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
+      }
+
+      const created = {
+        id: `tx-custom-${Date.now()}`,
+        branchId,
+        name,
+        description,
+        category,
+        department: category,
+        durationMin,
+        duration: `${durationMin} Minutes`,
+        price,
+        currency,
+        unit: session,
+        session,
+        status: 'active',
+        region: branch.region,
+        imageKey: 'treatmentimage',
+        imageUri: input.imageUri ? String(input.imageUri) : null,
+        custom: true,
+        createdAt: new Date().toISOString(),
+      };
+      customTreatments.unshift(created);
+      return formatTreatmentItem(created, branchId);
     },
     listBranches() {
       return { items: branches };
