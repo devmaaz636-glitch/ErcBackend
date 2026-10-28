@@ -635,6 +635,12 @@ function createClinicStore(options = {}) {
 
   /** Manager-created treatments (branch-scoped, absolute price). */
   const customTreatments = [];
+  /** Soft-deleted treatment ids per branch (`branchId:treatmentId`). */
+  const deletedTreatmentKeys = new Set();
+
+  function treatmentDeleteKey(branchId, id) {
+    return `${branchId}:${id}`;
+  }
 
   function regionPriceFactor(region) {
     if (region === 'KSA') return 1.05;
@@ -651,11 +657,85 @@ function createClinicStore(options = {}) {
     return match ? Math.max(1, Number(match[1])) : 30;
   }
 
+  function parseSessionCount(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.max(1, Math.round(value));
+    const match = String(value || '').match(/(\d+)/);
+    return match ? Math.max(1, Number(match[1])) : 12;
+  }
+
+  function departmentShortLabel(category) {
+    const raw = String(category || 'Treatment').trim();
+    return raw.split(/\s+/)[0] || 'Treatment';
+  }
+
+  function doctorsForTreatment(branchId, category, doctorIds = null) {
+    const clinic = branchById(branchId);
+    const specialtyFallback = departmentShortLabel(category);
+    const needle = String(category || '')
+      .toLowerCase()
+      .replace(/treatments?/g, '')
+      .trim();
+    const branchDocs = doctors.filter((doctor) => doctor.branchId === branchId);
+    const byId = new Map(doctors.map((doctor) => [doctor.id, doctor]));
+    const ordered = [];
+    const seen = new Set();
+
+    const preferredIds = Array.isArray(doctorIds)
+      ? doctorIds.map((id) => String(id)).filter(Boolean)
+      : [];
+    for (const id of preferredIds) {
+      const doctor = byId.get(id);
+      if (!doctor || seen.has(doctor.id)) continue;
+      seen.add(doctor.id);
+      ordered.push(doctor);
+      if (ordered.length >= 2) break;
+    }
+
+    if (ordered.length < 2) {
+      const matched = needle
+        ? branchDocs.filter((doctor) =>
+            String(doctor.specialty || '')
+              .toLowerCase()
+              .includes(needle.split(/\s+/)[0] || needle)
+          )
+        : [];
+      for (const doctor of [...matched, ...branchDocs, ...doctors]) {
+        if (seen.has(doctor.id)) continue;
+        seen.add(doctor.id);
+        ordered.push(doctor);
+        if (ordered.length >= 2) break;
+      }
+    }
+
+    while (ordered.length < 2) {
+      const index = ordered.length + 1;
+      ordered.push({
+        id: `doc-fallback-${index}`,
+        name: index === 1 ? 'Dr. Ahmed Khan' : 'Dr. Sara Ali',
+        specialty: specialtyFallback,
+        consults: 40,
+        score: 90,
+        branchId,
+      });
+    }
+    return ordered.slice(0, 2).map((doctor) => ({
+      ...doctor,
+      clinic: clinic?.name || null,
+      specialtyLabel: `${specialtyFallback} Treatment`,
+    }));
+  }
+
   function formatTreatmentItem(treatment, branchId) {
     const branch = branchById(branchId);
     const region = branch?.region || treatment.region || 'UAE';
     const currency = treatment.currency || REGION_CURRENCY[region] || 'AED';
     const durationMin = treatment.durationMin || parseDurationMinutes(treatment.duration);
+    const category = treatment.category || treatment.department || 'Skincare';
+    const department = treatment.department || treatment.category || 'Skincare';
+    const sessions = treatment.sessions != null
+      ? parseSessionCount(treatment.sessions)
+      : parseSessionCount(treatment.sessionCount || treatment.session);
+    const doctorIds = Array.isArray(treatment.doctorIds) ? treatment.doctorIds : null;
     const price =
       treatment.price != null
         ? Number(treatment.price)
@@ -664,15 +744,19 @@ function createClinicStore(options = {}) {
       id: treatment.id,
       name: treatment.name,
       description: treatment.description || '',
-      category: treatment.category || treatment.department || 'Skincare',
-      department: treatment.department || treatment.category || 'Skincare',
+      category,
+      department,
+      departmentLabel: departmentShortLabel(department || category),
+      departmentTitle: `${departmentShortLabel(department || category)} Department`,
       durationMin,
       duration: treatment.duration || `${durationMin} Minutes`,
+      durationLabel: `${durationMin} min`,
       price,
       currency,
       priceLabel: `${currency} ${Number(price).toLocaleString('en-US')}`,
       unit: treatment.unit || treatment.session || 'Per Session',
       session: treatment.session || treatment.unit || 'Per Session',
+      sessions,
       status: treatment.status || 'active',
       branchId,
       region,
@@ -680,6 +764,8 @@ function createClinicStore(options = {}) {
       imageUri: treatment.imageUri || null,
       createdAt: treatment.createdAt || null,
       custom: Boolean(treatment.custom),
+      doctorIds: doctorIds || [],
+      doctors: doctorsForTreatment(branchId, category, doctorIds),
     };
   }
 
@@ -1087,12 +1173,14 @@ function createClinicStore(options = {}) {
       const branch = branchById(branchId);
       const region = branch?.region || 'UAE';
       const currency = REGION_CURRENCY[region] || 'AED';
+      const isDeleted = (id) => deletedTreatmentKeys.has(treatmentDeleteKey(branchId, id));
 
-      const catalogItems = treatmentCatalog.map((treatment) =>
-        formatTreatmentItem(treatment, branchId)
-      );
       const customItems = customTreatments
-        .filter((treatment) => treatment.branchId === branchId)
+        .filter((treatment) => treatment.branchId === branchId && !isDeleted(treatment.id))
+        .map((treatment) => formatTreatmentItem(treatment, branchId));
+      const overriddenIds = new Set(customItems.map((item) => item.id));
+      const catalogItems = treatmentCatalog
+        .filter((treatment) => !isDeleted(treatment.id) && !overriddenIds.has(treatment.id))
         .map((treatment) => formatTreatmentItem(treatment, branchId));
 
       return {
@@ -1107,6 +1195,7 @@ function createClinicStore(options = {}) {
       };
     },
     getManagerTreatment(id, branchId) {
+      if (deletedTreatmentKeys.has(treatmentDeleteKey(branchId, id))) return null;
       const custom = customTreatments.find(
         (item) => item.id === id && item.branchId === branchId
       );
@@ -1128,6 +1217,7 @@ function createClinicStore(options = {}) {
       const durationMin = parseDurationMinutes(input.duration || input.durationMin);
       const price = Number(input.price);
       const session = String(input.session || input.unit || 'Per Session').trim() || 'Per Session';
+      const sessions = parseSessionCount(input.sessions != null ? input.sessions : session);
       const currency = REGION_CURRENCY[branch.region] || 'AED';
 
       if (!name) {
@@ -1141,6 +1231,7 @@ function createClinicStore(options = {}) {
         throw error;
       }
 
+      const durationText = String(input.duration || '').trim() || `${durationMin} Minutes`;
       const created = {
         id: `tx-custom-${Date.now()}`,
         branchId,
@@ -1149,20 +1240,132 @@ function createClinicStore(options = {}) {
         category,
         department: category,
         durationMin,
-        duration: `${durationMin} Minutes`,
+        duration: durationText,
         price,
         currency,
         unit: session,
         session,
+        sessions,
         status: 'active',
         region: branch.region,
-        imageKey: 'treatmentimage',
+        imageKey: 'treatmentdetail',
         imageUri: input.imageUri ? String(input.imageUri) : null,
         custom: true,
         createdAt: new Date().toISOString(),
       };
       customTreatments.unshift(created);
       return formatTreatmentItem(created, branchId);
+    },
+    updateManagerTreatment(branchId, id, input = {}) {
+      const branch = branchById(branchId);
+      if (!branch) return null;
+      if (deletedTreatmentKeys.has(treatmentDeleteKey(branchId, id))) return null;
+
+      let index = customTreatments.findIndex(
+        (item) => item.id === id && item.branchId === branchId
+      );
+      if (index < 0) {
+        const catalog = treatmentCatalog.find((item) => item.id === id);
+        if (!catalog) {
+          const error = new Error('Treatment not found.');
+          error.code = 'INVALID_TREATMENT';
+          throw error;
+        }
+        customTreatments.unshift({
+          ...catalog,
+          branchId,
+          price:
+            catalog.price != null
+              ? Number(catalog.price)
+              : Math.round((catalog.basePrice || 0) * regionPriceFactor(branch.region)),
+          currency: REGION_CURRENCY[branch.region] || 'AED',
+          duration: catalog.duration || `${catalog.durationMin || 30} Minutes`,
+          durationMin: catalog.durationMin || 30,
+          session: 'Per Session',
+          unit: 'Per Session',
+          sessions: 12,
+          description: catalog.description || '',
+          custom: true,
+          region: branch.region,
+          createdAt: new Date().toISOString(),
+        });
+        index = 0;
+      }
+      const current = customTreatments[index];
+      const name = String(input.name != null ? input.name : current.name || '').trim();
+      const description = String(
+        input.description != null ? input.description : current.description || ''
+      ).trim();
+      const department = String(
+        input.department || input.category || current.department || current.category || ''
+      ).trim();
+      const category = TREATMENT_CATEGORIES.includes(department)
+        ? department
+        : department || current.category || 'Skincare';
+      const durationMin = parseDurationMinutes(
+        input.duration != null ? input.duration : current.duration || current.durationMin
+      );
+      const durationText =
+        String(input.duration != null ? input.duration : current.duration || '').trim() ||
+        `${durationMin} Minutes`;
+      const price = Number(input.price != null ? input.price : current.price);
+      const session =
+        String(input.session || input.unit || current.session || current.unit || 'Per Session').trim() ||
+        'Per Session';
+      const sessions = parseSessionCount(
+        input.sessions != null ? input.sessions : current.sessions != null ? current.sessions : session
+      );
+
+      if (!name) {
+        const error = new Error('Treatment name is required.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
+      }
+      if (!Number.isFinite(price) || price < 0) {
+        const error = new Error('Enter a valid treatment price.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
+      }
+
+      const doctorIds = Array.isArray(input.doctorIds)
+        ? input.doctorIds.map((id) => String(id)).filter(Boolean).slice(0, 2)
+        : Array.isArray(current.doctorIds)
+          ? current.doctorIds
+          : undefined;
+
+      const updated = {
+        ...current,
+        name,
+        description,
+        category,
+        department: category,
+        durationMin,
+        duration: durationText,
+        price,
+        unit: session,
+        session,
+        sessions,
+        ...(doctorIds ? { doctorIds } : {}),
+        imageUri:
+          input.imageUri !== undefined
+            ? input.imageUri
+              ? String(input.imageUri)
+              : null
+            : current.imageUri || null,
+        updatedAt: new Date().toISOString(),
+      };
+      customTreatments[index] = updated;
+      return formatTreatmentItem(updated, branchId);
+    },
+    deleteManagerTreatment(branchId, id) {
+      const existing = this.getManagerTreatment(id, branchId);
+      if (!existing) return null;
+      const index = customTreatments.findIndex(
+        (item) => item.id === id && item.branchId === branchId
+      );
+      if (index >= 0) customTreatments.splice(index, 1);
+      deletedTreatmentKeys.add(treatmentDeleteKey(branchId, id));
+      return existing;
     },
     listBranches() {
       return { items: branches };
