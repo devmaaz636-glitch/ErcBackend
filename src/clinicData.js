@@ -82,6 +82,11 @@ function createClinicStore(options = {}) {
       id: 'doc-1',
       name: 'Dr. Ali Khan',
       specialty: 'Dermatologist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+971 50 222 1001', email: 'ali.khan@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
       consults: 48,
       score: 94,
       branchId: 'br-dubai',
@@ -90,6 +95,11 @@ function createClinicStore(options = {}) {
       id: 'doc-2',
       name: 'Dr. Sarah Malik',
       specialty: 'Hair Specialist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+971 50 222 1002', email: 'sarah.malik@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
       consults: 42,
       score: 92,
       branchId: 'br-dubai',
@@ -98,6 +108,11 @@ function createClinicStore(options = {}) {
       id: 'doc-3',
       name: 'Dr. Nora Ahmed',
       specialty: 'Laser Specialist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+966 55 222 1003', email: 'nora.ahmed@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '10:00 AM', end: '06:00 PM' },
       consults: 36,
       score: 88,
       branchId: 'br-riyadh',
@@ -106,6 +121,11 @@ function createClinicStore(options = {}) {
       id: 'doc-4',
       name: 'Dr. Hassan Reza',
       specialty: 'Dentist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+968 92 222 1004', email: 'hassan.reza@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
       consults: 29,
       score: 85,
       branchId: 'br-muscat',
@@ -649,7 +669,7 @@ function createClinicStore(options = {}) {
     if (!branch) return null;
     const branchAppointments = scopedAppointments(branchId);
     const branchDoctors = doctors
-      .filter((doctor) => doctor.branchId === branchId)
+      .filter((doctor) => doctor.branchId === branchId && doctor.status !== 'inactive')
       .map((doctor) => ({ ...doctor, clinic: branch.name }));
     const period = today.slice(0, 7);
     const treatments = [...new Set(branchAppointments.map((item) => item.treatment))].map((name) => {
@@ -731,9 +751,55 @@ function createClinicStore(options = {}) {
       const clinic = branchById(branchId);
       return {
         items: doctors
-          .filter((doctor) => doctor.branchId === branchId)
+          .filter((doctor) => doctor.branchId === branchId && doctor.status !== 'inactive')
           .map((doctor) => ({ ...doctor, clinic: clinic?.name || null })),
       };
+    },
+    getManagerDoctor(id, branchId) {
+      const clinic = branchById(branchId);
+      const doctor = doctors.find((item) => item.id === id && item.branchId === branchId);
+      return doctor ? { ...doctor, clinic: clinic?.name || null } : null;
+    },
+    createManagerDoctor(branchId, input) {
+      const clinic = branchById(branchId);
+      if (!clinic) return null;
+      const doctor = {
+        id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: input.name,
+        specialty: input.specialty,
+        photo: input.photo || null,
+        status: input.status || 'active',
+        contact: input.contact || { phone: '', email: '' },
+        availability: input.availability || 'Available',
+        schedule: input.schedule || { start: '09:00 AM', end: '05:00 PM' },
+        consults: 0,
+        score: 0,
+        branchId,
+      };
+      doctors.push(doctor);
+      return { ...doctor, clinic: clinic.name };
+    },
+    updateManagerDoctor(id, branchId, input) {
+      const clinic = branchById(branchId);
+      const doctor = doctors.find((item) => item.id === id && item.branchId === branchId);
+      if (!clinic || !doctor) return null;
+      Object.assign(doctor, {
+        name: input.name,
+        specialty: input.specialty,
+        photo: input.photo || null,
+        status: input.status || doctor.status,
+        contact: input.contact || doctor.contact,
+        availability: input.availability || doctor.availability,
+        schedule: input.schedule || doctor.schedule,
+      });
+      return { ...doctor, clinic: clinic.name };
+    },
+    deactivateManagerDoctor(id, branchId) {
+      const doctor = doctors.find((item) => item.id === id && item.branchId === branchId);
+      if (!doctor) return null;
+      doctor.status = 'inactive';
+      doctor.availability = 'Unavailable';
+      return doctor;
     },
     listManagerTreatments(branchId) {
       const items = scopedAppointments(branchId);

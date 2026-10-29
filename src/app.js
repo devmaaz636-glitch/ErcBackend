@@ -303,6 +303,58 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, ...clinic.listManagerDoctors(req.user.branchId) });
   });
 
+  app.get('/api/manager/doctors/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.getManagerDoctor(req.params.id, req.user.branchId);
+    if (!item || item.status === 'inactive') {
+      throw new ApiError(404, 'NOT_FOUND', 'Doctor not found.');
+    }
+    res.json({ ok: true, item });
+  });
+
+  function doctorInput(body) {
+    const name = String(body?.name || '').trim();
+    const specialty = String(body?.specialty || '').trim();
+    if (!name || !specialty) {
+      throw new ApiError(400, 'INVALID_DOCTOR', 'name and specialty are required.');
+    }
+    const contact = body?.contact || {};
+    return {
+      name,
+      specialty,
+      photo: body?.photo ? String(body.photo).trim() : null,
+      status: body?.status === 'inactive' ? 'inactive' : 'active',
+      availability: String(body?.availability || 'Available').trim(),
+      schedule: {
+        start: String(body?.schedule?.start || '09:00 AM').trim(),
+        end: String(body?.schedule?.end || '05:00 PM').trim(),
+      },
+      contact: {
+        phone: String(contact.phone || '').trim(),
+        email: String(contact.email || '').trim(),
+      },
+    };
+  }
+
+  app.post('/api/manager/doctors', requireUser, requireManager, (req, res) => {
+    const item = clinic.createManagerDoctor(req.user.branchId, doctorInput(req.body));
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Branch not found.');
+    res.status(201).json({ ok: true, item });
+  });
+
+  app.patch('/api/manager/doctors/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.updateManagerDoctor(req.params.id, req.user.branchId, doctorInput(req.body));
+    if (!item || item.status === 'inactive') {
+      throw new ApiError(404, 'NOT_FOUND', 'Doctor not found.');
+    }
+    res.json({ ok: true, item });
+  });
+
+  app.delete('/api/manager/doctors/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.deactivateManagerDoctor(req.params.id, req.user.branchId);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Doctor not found.');
+    res.json({ ok: true, item });
+  });
+
   // Real-time stream (SSE). Expo Go can also poll /feed; this is for live updates.
   app.get('/api/notifications/stream', requireUser, async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
