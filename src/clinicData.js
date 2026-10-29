@@ -118,6 +118,32 @@ function createClinicStore(options = {}) {
       branchId: 'br-riyadh',
     },
     {
+      id: 'doc-3b',
+      name: 'Dr. Layla Hassan',
+      specialty: 'Dermatologist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+966 55 222 1005', email: 'layla.hassan@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
+      consults: 41,
+      score: 91,
+      branchId: 'br-riyadh',
+    },
+    {
+      id: 'doc-3c',
+      name: 'Dr. Yusuf Alharbi',
+      specialty: 'Hair Specialist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+966 55 222 1006', email: 'yusuf.alharbi@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
+      consults: 33,
+      score: 87,
+      branchId: 'br-riyadh',
+    },
+    {
       id: 'doc-4',
       name: 'Dr. Hassan Reza',
       specialty: 'Dentist',
@@ -252,7 +278,7 @@ function createClinicStore(options = {}) {
       patient: 'Sara Ahmed',
       patientId: 'PT-2070',
       code: 'APT-0003',
-      treatment: 'Laser Session',
+      treatment: 'Laser Treatment',
       department: 'Laser',
       time: '09:00 AM',
       endTime: '09:45 AM',
@@ -260,10 +286,100 @@ function createClinicStore(options = {}) {
       doctorSpecialty: 'Laser Specialist',
       clinic: 'Riyadh Clinic',
       branchId: 'br-riyadh',
-      status: 'canceled',
-      paymentStatus: 'refunded',
+      status: 'completed',
+      paymentStatus: 'paid',
       date: daysFrom(today, -3),
       bookingDate: daysFrom(today, -8),
+    },
+    {
+      id: 'apt-3b',
+      patient: 'Khalid Mansour',
+      patientId: 'PT-2110',
+      code: 'APT-0110',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      time: '10:00 AM',
+      endTime: '10:45 AM',
+      doctor: 'Dr. Nora Ahmed',
+      doctorSpecialty: 'Laser Specialist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'upcoming',
+      paymentStatus: 'paid',
+      date: daysFrom(today, 0),
+      bookingDate: daysFrom(today, -2),
+    },
+    {
+      id: 'apt-3c',
+      patient: 'Maha Alotaibi',
+      patientId: 'PT-2111',
+      code: 'APT-0111',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      time: '11:30 AM',
+      endTime: '12:15 PM',
+      doctor: 'Dr. Layla Hassan',
+      doctorSpecialty: 'Dermatologist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'upcoming',
+      paymentStatus: 'paid',
+      date: daysFrom(today, 0),
+      bookingDate: daysFrom(today, -1),
+    },
+    {
+      id: 'apt-3d',
+      patient: 'Noura Saleh',
+      patientId: 'PT-2112',
+      code: 'APT-0112',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      time: '01:00 PM',
+      endTime: '01:45 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'completed',
+      paymentStatus: 'paid',
+      date: daysFrom(today, -1),
+      bookingDate: daysFrom(today, -5),
+    },
+    {
+      id: 'apt-3e',
+      patient: 'Faisal Nasser',
+      patientId: 'PT-2113',
+      code: 'APT-0113',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      time: '03:00 PM',
+      endTime: '03:45 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'upcoming',
+      paymentStatus: 'pending',
+      date: daysFrom(today, 1),
+      bookingDate: daysFrom(today, -2),
+    },
+    {
+      id: 'apt-3f',
+      patient: 'Reem Abdullah',
+      patientId: 'PT-2114',
+      code: 'APT-0114',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      time: '04:00 PM',
+      endTime: '04:45 PM',
+      doctor: 'Dr. Layla Hassan',
+      doctorSpecialty: 'Dermatologist',
+      clinic: 'Riyadh Clinic',
+      branchId: 'br-riyadh',
+      status: 'canceled',
+      paymentStatus: 'refunded',
+      date: daysFrom(today, -2),
+      bookingDate: daysFrom(today, -6),
     },
     {
       id: 'apt-4',
@@ -362,22 +478,326 @@ function createClinicStore(options = {}) {
       requestedAt: daysFrom(today, 0),
       note: 'Patient requested the earliest available morning slot.',
     },
+    {
+      id: 'req-riyadh-1',
+      appointmentId: 'APT-2201',
+      patient: 'Amina Al Saud',
+      patientId: 'PT-2201',
+      patientPhone: '+966 55 XXX XXXX',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      duration: '45 Min',
+      treatmentPrice: 'SAR 750',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '10:00 AM',
+      doctor: 'Dr. Nora Ahmed',
+      doctorSpecialty: 'Laser Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 150',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Patient prefers a morning laser slot for approval.',
+    },
+    {
+      id: 'req-riyadh-2',
+      appointmentId: 'APT-2202',
+      patient: 'Hassan Almutairi',
+      patientId: 'PT-2202',
+      patientPhone: '+966 50 XXX XXXX',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      duration: '60 Min',
+      treatmentPrice: 'SAR 900',
+      requestedDate: daysFrom(today, 2),
+      requestedTime: '02:30 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 200',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Needs clinic manager approval before deposit.',
+    },
+    {
+      id: 'req-riyadh-3',
+      appointmentId: 'APT-2203',
+      patient: 'Sara Alqahtani',
+      patientId: 'PT-2203',
+      patientPhone: '+966 54 XXX XXXX',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      duration: '30 Min',
+      treatmentPrice: 'SAR 400',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '04:00 PM',
+      doctor: 'Dr. Layla Hassan',
+      doctorSpecialty: 'Dermatologist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 100',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Follow-up consultation awaiting approval.',
+    },
+    {
+      id: 'req-riyadh-4',
+      appointmentId: 'APT-2204',
+      patient: 'Omar Fahad',
+      patientId: 'PT-2204',
+      patientPhone: '+966 56 XXX XXXX',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      duration: '30 Min',
+      treatmentPrice: 'SAR 650',
+      requestedDate: daysFrom(today, -1),
+      requestedTime: '11:00 AM',
+      doctor: 'Dr. Nora Ahmed',
+      doctorSpecialty: 'Laser Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Paid',
+      depositRequired: 'SAR 150',
+      status: 'approved',
+      requestedAt: daysFrom(today, -2),
+      reviewedAt: daysFrom(today, -1),
+      note: 'Approved by clinic manager.',
+    },
+    {
+      id: 'req-riyadh-5',
+      appointmentId: 'APT-2205',
+      patient: 'Lina Alharbi',
+      patientId: 'PT-2205',
+      patientPhone: '+966 58 XXX XXXX',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      duration: '60 Min',
+      treatmentPrice: 'SAR 900',
+      requestedDate: daysFrom(today, 3),
+      requestedTime: '01:00 PM',
+      doctor: 'Dr. Yusuf Alharbi',
+      doctorSpecialty: 'Hair Specialist',
+      branchId: 'br-riyadh',
+      branch: 'Riyadh Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'SAR 200',
+      status: 'rescheduled',
+      requestedAt: daysFrom(today, -3),
+      reviewedAt: daysFrom(today, -1),
+      note: 'Patient asked for a later afternoon slot.',
+    },
   ];
 
+  const quotaPeriod = today.slice(0, 7);
   const treatmentQuotas = [
     {
       id: 'laser-treatment',
       name: 'Laser Treatment',
-      period: '2026-10',
+      period: quotaPeriod,
       quota: 124,
     },
     {
       id: 'hair-treatment',
       name: 'Hair Treatment',
-      period: '2026-10',
+      period: quotaPeriod,
       quota: 100,
     },
+    {
+      id: 'dermatology-consultation',
+      name: 'Dermatology Consultation',
+      period: quotaPeriod,
+      quota: 80,
+    },
   ];
+
+  /** Clinic-manager Treatments catalog (region currency + category chips). */
+  const TREATMENT_CATEGORIES = [
+    'Plastic Surgery',
+    'Cosmetic Injectables',
+    'Laser Treatments',
+    'Skincare',
+    'Dermatologists',
+    'Hair Transplant',
+    'Dental Treatments',
+    'Weight Loss',
+    'Gynecology',
+    'Regenerative',
+    'Physiotherapist',
+    'Home Healthcare',
+    'Intimate Surgery',
+  ];
+
+  const REGION_CURRENCY = {
+    UAE: 'AED',
+    KSA: 'SAR',
+    Oman: 'OMR',
+    Pakistan: 'PKR',
+    USA: 'USD',
+  };
+
+  const treatmentCatalog = [
+    { id: 'tx-laser-hair', name: 'Laser Hair Removal', category: 'Laser Treatments', durationMin: 30, basePrice: 500, status: 'active' },
+    { id: 'tx-laser-skin', name: 'Laser Skin Resurfacing', category: 'Laser Treatments', durationMin: 45, basePrice: 750, status: 'active' },
+    { id: 'tx-laser-pigment', name: 'Pigmentation Laser', category: 'Laser Treatments', durationMin: 40, basePrice: 650, status: 'active' },
+    { id: 'tx-botox', name: 'Botox Session', category: 'Cosmetic Injectables', durationMin: 25, basePrice: 900, status: 'active' },
+    { id: 'tx-filler', name: 'Dermal Fillers', category: 'Cosmetic Injectables', durationMin: 35, basePrice: 1200, status: 'active' },
+    { id: 'tx-rhino', name: 'Rhinoplasty Consult', category: 'Plastic Surgery', durationMin: 60, basePrice: 1500, status: 'active' },
+    { id: 'tx-lipo', name: 'Liposuction Review', category: 'Plastic Surgery', durationMin: 50, basePrice: 1800, status: 'active' },
+    { id: 'tx-facial', name: 'Hydra Facial', category: 'Skincare', durationMin: 40, basePrice: 350, status: 'active' },
+    { id: 'tx-peel', name: 'Chemical Peel', category: 'Skincare', durationMin: 30, basePrice: 280, status: 'active' },
+    { id: 'tx-derm-consult', name: 'Dermatology Consultation', category: 'Dermatologists', durationMin: 30, basePrice: 400, status: 'active' },
+    { id: 'tx-acne', name: 'Acne Treatment Plan', category: 'Dermatologists', durationMin: 35, basePrice: 450, status: 'active' },
+    { id: 'tx-hair-fuse', name: 'Hair Transplant Session', category: 'Hair Transplant', durationMin: 120, basePrice: 4500, status: 'active' },
+    { id: 'tx-prp-hair', name: 'PRP Hair Therapy', category: 'Hair Transplant', durationMin: 45, basePrice: 800, status: 'active' },
+    { id: 'tx-dental-clean', name: 'Dental Cleaning', category: 'Dental Treatments', durationMin: 40, basePrice: 300, status: 'active' },
+    { id: 'tx-whitening', name: 'Teeth Whitening', category: 'Dental Treatments', durationMin: 50, basePrice: 550, status: 'active' },
+    { id: 'tx-weight', name: 'Weight Loss Program', category: 'Weight Loss', durationMin: 45, basePrice: 600, status: 'active' },
+    { id: 'tx-gyn', name: 'Gynecology Consult', category: 'Gynecology', durationMin: 30, basePrice: 420, status: 'active' },
+    { id: 'tx-stem', name: 'Stem Cell Therapy', category: 'Regenerative', durationMin: 60, basePrice: 2200, status: 'active' },
+    { id: 'tx-physio', name: 'Physiotherapy Session', category: 'Physiotherapist', durationMin: 45, basePrice: 250, status: 'active' },
+    { id: 'tx-home', name: 'Home Care Visit', category: 'Home Healthcare', durationMin: 60, basePrice: 320, status: 'active' },
+    { id: 'tx-intimate', name: 'Intimate Surgery Consult', category: 'Intimate Surgery', durationMin: 40, basePrice: 1100, status: 'active' },
+  ];
+
+  /** Manager-created treatments (branch-scoped, absolute price). */
+  const customTreatments = [];
+  /** Soft-deleted treatment ids per branch (`branchId:treatmentId`). */
+  const deletedTreatmentKeys = new Set();
+
+  function treatmentDeleteKey(branchId, id) {
+    return `${branchId}:${id}`;
+  }
+
+  function regionPriceFactor(region) {
+    if (region === 'KSA') return 1.05;
+    if (region === 'Oman') return 0.1;
+    if (region === 'Pakistan') return 75;
+    if (region === 'USA') return 0.27;
+    return 1;
+  }
+
+  function parseDurationMinutes(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.max(1, Math.round(value));
+    const raw = String(value || '').trim();
+    const match = raw.match(/(\d+)/);
+    return match ? Math.max(1, Number(match[1])) : 30;
+  }
+
+  function parseSessionCount(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.max(1, Math.round(value));
+    const match = String(value || '').match(/(\d+)/);
+    return match ? Math.max(1, Number(match[1])) : 12;
+  }
+
+  function departmentShortLabel(category) {
+    const raw = String(category || 'Treatment').trim();
+    return raw.split(/\s+/)[0] || 'Treatment';
+  }
+
+  function doctorsForTreatment(branchId, category, doctorIds = null) {
+    const clinic = branchById(branchId);
+    const specialtyFallback = departmentShortLabel(category);
+    const needle = String(category || '')
+      .toLowerCase()
+      .replace(/treatments?/g, '')
+      .trim();
+    const branchDocs = doctors.filter((doctor) => doctor.branchId === branchId);
+    const byId = new Map(doctors.map((doctor) => [doctor.id, doctor]));
+    const ordered = [];
+    const seen = new Set();
+
+    const preferredIds = Array.isArray(doctorIds)
+      ? doctorIds.map((id) => String(id)).filter(Boolean)
+      : [];
+    for (const id of preferredIds) {
+      const doctor = byId.get(id);
+      if (!doctor || seen.has(doctor.id)) continue;
+      seen.add(doctor.id);
+      ordered.push(doctor);
+      if (ordered.length >= 2) break;
+    }
+
+    if (ordered.length < 2) {
+      const matched = needle
+        ? branchDocs.filter((doctor) =>
+            String(doctor.specialty || '')
+              .toLowerCase()
+              .includes(needle.split(/\s+/)[0] || needle)
+          )
+        : [];
+      for (const doctor of [...matched, ...branchDocs, ...doctors]) {
+        if (seen.has(doctor.id)) continue;
+        seen.add(doctor.id);
+        ordered.push(doctor);
+        if (ordered.length >= 2) break;
+      }
+    }
+
+    while (ordered.length < 2) {
+      const index = ordered.length + 1;
+      ordered.push({
+        id: `doc-fallback-${index}`,
+        name: index === 1 ? 'Dr. Ahmed Khan' : 'Dr. Sara Ali',
+        specialty: specialtyFallback,
+        consults: 40,
+        score: 90,
+        branchId,
+      });
+    }
+    return ordered.slice(0, 2).map((doctor) => ({
+      ...doctor,
+      clinic: clinic?.name || null,
+      specialtyLabel: `${specialtyFallback} Treatment`,
+    }));
+  }
+
+  function formatTreatmentItem(treatment, branchId) {
+    const branch = branchById(branchId);
+    const region = branch?.region || treatment.region || 'UAE';
+    const currency = treatment.currency || REGION_CURRENCY[region] || 'AED';
+    const durationMin = treatment.durationMin || parseDurationMinutes(treatment.duration);
+    const category = treatment.category || treatment.department || 'Skincare';
+    const department = treatment.department || treatment.category || 'Skincare';
+    const sessions = treatment.sessions != null
+      ? parseSessionCount(treatment.sessions)
+      : parseSessionCount(treatment.sessionCount || treatment.session);
+    const doctorIds = Array.isArray(treatment.doctorIds) ? treatment.doctorIds : null;
+    const price =
+      treatment.price != null
+        ? Number(treatment.price)
+        : Math.round((treatment.basePrice || 0) * regionPriceFactor(region));
+    return {
+      id: treatment.id,
+      name: treatment.name,
+      description: treatment.description || '',
+      category,
+      department,
+      departmentLabel: departmentShortLabel(department || category),
+      departmentTitle: `${departmentShortLabel(department || category)} Department`,
+      durationMin,
+      duration: treatment.duration || `${durationMin} Minutes`,
+      durationLabel: `${durationMin} min`,
+      price,
+      currency,
+      priceLabel: `${currency} ${Number(price).toLocaleString('en-US')}`,
+      unit: treatment.unit || treatment.session || 'Per Session',
+      session: treatment.session || treatment.unit || 'Per Session',
+      sessions,
+      status: treatment.status || 'active',
+      branchId,
+      region,
+      imageKey: treatment.imageKey || 'treatmentimage',
+      imageUri: treatment.imageUri || null,
+      createdAt: treatment.createdAt || null,
+      custom: Boolean(treatment.custom),
+      doctorIds: doctorIds || [],
+      doctors: doctorsForTreatment(branchId, category, doctorIds),
+    };
+  }
 
   const attention = [
     {
@@ -670,24 +1090,28 @@ function createClinicStore(options = {}) {
     const branchAppointments = scopedAppointments(branchId);
     const branchDoctors = doctors
       .filter((doctor) => doctor.branchId === branchId && doctor.status !== 'inactive')
-      .map((doctor) => ({ ...doctor, clinic: branch.name }));
+      .map((doctor) => ({ ...doctor, clinic: branch.name }))
+      .sort((a, b) => (b.score || 0) - (a.score || 0));
     const period = today.slice(0, 7);
-    const treatments = [...new Set(branchAppointments.map((item) => item.treatment))].map((name) => {
-      const quota = treatmentQuotas.find((item) => item.name === name && item.period === period);
-      const sessions = branchAppointments.filter((item) => item.treatment === name).length;
-      const target = quota?.quota || 0;
-      return {
-        id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        name,
-        period,
-        sessions,
-        quota: target,
-        progress: target ? Math.min(1, sessions / target) : 0,
-        remaining: Math.max(0, target - sessions),
-        quotaConfigured: Boolean(quota),
-      };
-    });
+    const treatments = [...new Set(branchAppointments.map((item) => item.treatment))]
+      .map((name) => {
+        const quota = treatmentQuotas.find((item) => item.name === name && item.period === period);
+        const sessions = branchAppointments.filter((item) => item.treatment === name).length;
+        const target = quota?.quota || 0;
+        return {
+          id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name,
+          period,
+          sessions,
+          quota: target,
+          progress: target ? Math.min(1, sessions / target) : 0,
+          remaining: Math.max(0, target - sessions),
+          quotaConfigured: Boolean(quota),
+        };
+      })
+      .sort((a, b) => b.sessions - a.sessions);
     const branchRequests = appointmentRequests.filter((request) => request.branchId === branchId);
+    const pendingRequests = branchRequests.filter((request) => request.status === 'pending');
     const branchManagers = managers.filter((manager) => manager.branchId === branchId);
 
     return {
@@ -701,8 +1125,8 @@ function createClinicStore(options = {}) {
       },
       stats: scopedAppointmentStats(branchId),
       appointments: branchAppointments.slice(0, 5),
-      appointmentRequests: branchRequests.filter((request) => request.status === 'pending'),
-      pendingApprovals: branchRequests.filter((request) => request.status === 'pending').length,
+      appointmentRequests: pendingRequests,
+      pendingApprovals: pendingRequests.length,
       doctors: branchDoctors,
       treatments,
       doctorsOnRoster: branchDoctors.length,
@@ -730,9 +1154,26 @@ function createClinicStore(options = {}) {
       );
     },
     listManagerAppointmentRequests(branchId) {
-      return {
-        items: appointmentRequests.filter((request) => request.branchId === branchId),
-      };
+      const items = appointmentRequests
+        .filter((request) => request.branchId === branchId)
+        .map((request) => ({
+          ...request,
+          status: String(request.status || 'pending').toLowerCase(),
+          requestedTime: request.requestedTime || 'Time pending',
+          requestedDate: request.requestedDate || today,
+        }))
+        .sort((a, b) => {
+          const dateCmp = String(a.requestedDate).localeCompare(String(b.requestedDate));
+          if (dateCmp !== 0) return dateCmp;
+          return String(a.requestedTime).localeCompare(String(b.requestedTime));
+        });
+
+      const counts = { all: items.length, pending: 0, approved: 0, rescheduled: 0, rejected: 0 };
+      for (const item of items) {
+        if (counts[item.status] != null) counts[item.status] += 1;
+      }
+
+      return { items, counts };
     },
     getManagerAppointmentRequest(id, branchId) {
       return appointmentRequests.find(
@@ -745,7 +1186,10 @@ function createClinicStore(options = {}) {
       );
       if (!request) return null;
       Object.assign(request, update);
-      return request;
+      if (update.status) {
+        request.status = String(update.status).toLowerCase();
+      }
+      return { ...request };
     },
     listManagerDoctors(branchId) {
       const clinic = branchById(branchId);
@@ -802,19 +1246,202 @@ function createClinicStore(options = {}) {
       return doctor;
     },
     listManagerTreatments(branchId) {
-      const items = scopedAppointments(branchId);
-      const grouped = new Map();
-      for (const appointment of items) {
-        const current = grouped.get(appointment.treatment) || {
-          id: appointment.treatment.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          name: appointment.treatment,
-          department: appointment.department,
-          appointments: 0,
-        };
-        current.appointments += 1;
-        grouped.set(appointment.treatment, current);
+      const branch = branchById(branchId);
+      const region = branch?.region || 'UAE';
+      const currency = REGION_CURRENCY[region] || 'AED';
+      const isDeleted = (id) => deletedTreatmentKeys.has(treatmentDeleteKey(branchId, id));
+
+      const customItems = customTreatments
+        .filter((treatment) => treatment.branchId === branchId && !isDeleted(treatment.id))
+        .map((treatment) => formatTreatmentItem(treatment, branchId));
+      const overriddenIds = new Set(customItems.map((item) => item.id));
+      const catalogItems = treatmentCatalog
+        .filter((treatment) => !isDeleted(treatment.id) && !overriddenIds.has(treatment.id))
+        .map((treatment) => formatTreatmentItem(treatment, branchId));
+
+      return {
+        categories: ['All', ...TREATMENT_CATEGORIES],
+        departments: TREATMENT_CATEGORIES,
+        currency,
+        region,
+        branch: branch
+          ? { id: branch.id, name: branch.name, city: branch.city, region: branch.region }
+          : null,
+        items: [...customItems, ...catalogItems],
+      };
+    },
+    getManagerTreatment(id, branchId) {
+      if (deletedTreatmentKeys.has(treatmentDeleteKey(branchId, id))) return null;
+      const custom = customTreatments.find(
+        (item) => item.id === id && item.branchId === branchId
+      );
+      if (custom) return formatTreatmentItem(custom, branchId);
+      const treatment = treatmentCatalog.find((item) => item.id === id);
+      if (!treatment) return null;
+      return formatTreatmentItem(treatment, branchId);
+    },
+    createManagerTreatment(branchId, input = {}) {
+      const branch = branchById(branchId);
+      if (!branch) return null;
+
+      const name = String(input.name || '').trim();
+      const description = String(input.description || '').trim();
+      const department = String(input.department || input.category || '').trim();
+      const category = TREATMENT_CATEGORIES.includes(department)
+        ? department
+        : department || 'Skincare';
+      const durationMin = parseDurationMinutes(input.duration || input.durationMin);
+      const price = Number(input.price);
+      const session = String(input.session || input.unit || 'Per Session').trim() || 'Per Session';
+      const sessions = parseSessionCount(input.sessions != null ? input.sessions : session);
+      const currency = REGION_CURRENCY[branch.region] || 'AED';
+
+      if (!name) {
+        const error = new Error('Treatment name is required.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
       }
-      return { items: [...grouped.values()] };
+      if (!Number.isFinite(price) || price < 0) {
+        const error = new Error('Enter a valid treatment price.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
+      }
+
+      const durationText = String(input.duration || '').trim() || `${durationMin} Minutes`;
+      const created = {
+        id: `tx-custom-${Date.now()}`,
+        branchId,
+        name,
+        description,
+        category,
+        department: category,
+        durationMin,
+        duration: durationText,
+        price,
+        currency,
+        unit: session,
+        session,
+        sessions,
+        status: 'active',
+        region: branch.region,
+        imageKey: 'treatmentdetail',
+        imageUri: input.imageUri ? String(input.imageUri) : null,
+        custom: true,
+        createdAt: new Date().toISOString(),
+      };
+      customTreatments.unshift(created);
+      return formatTreatmentItem(created, branchId);
+    },
+    updateManagerTreatment(branchId, id, input = {}) {
+      const branch = branchById(branchId);
+      if (!branch) return null;
+      if (deletedTreatmentKeys.has(treatmentDeleteKey(branchId, id))) return null;
+
+      let index = customTreatments.findIndex(
+        (item) => item.id === id && item.branchId === branchId
+      );
+      if (index < 0) {
+        const catalog = treatmentCatalog.find((item) => item.id === id);
+        if (!catalog) {
+          const error = new Error('Treatment not found.');
+          error.code = 'INVALID_TREATMENT';
+          throw error;
+        }
+        customTreatments.unshift({
+          ...catalog,
+          branchId,
+          price:
+            catalog.price != null
+              ? Number(catalog.price)
+              : Math.round((catalog.basePrice || 0) * regionPriceFactor(branch.region)),
+          currency: REGION_CURRENCY[branch.region] || 'AED',
+          duration: catalog.duration || `${catalog.durationMin || 30} Minutes`,
+          durationMin: catalog.durationMin || 30,
+          session: 'Per Session',
+          unit: 'Per Session',
+          sessions: 12,
+          description: catalog.description || '',
+          custom: true,
+          region: branch.region,
+          createdAt: new Date().toISOString(),
+        });
+        index = 0;
+      }
+      const current = customTreatments[index];
+      const name = String(input.name != null ? input.name : current.name || '').trim();
+      const description = String(
+        input.description != null ? input.description : current.description || ''
+      ).trim();
+      const department = String(
+        input.department || input.category || current.department || current.category || ''
+      ).trim();
+      const category = TREATMENT_CATEGORIES.includes(department)
+        ? department
+        : department || current.category || 'Skincare';
+      const durationMin = parseDurationMinutes(
+        input.duration != null ? input.duration : current.duration || current.durationMin
+      );
+      const durationText =
+        String(input.duration != null ? input.duration : current.duration || '').trim() ||
+        `${durationMin} Minutes`;
+      const price = Number(input.price != null ? input.price : current.price);
+      const session =
+        String(input.session || input.unit || current.session || current.unit || 'Per Session').trim() ||
+        'Per Session';
+      const sessions = parseSessionCount(
+        input.sessions != null ? input.sessions : current.sessions != null ? current.sessions : session
+      );
+
+      if (!name) {
+        const error = new Error('Treatment name is required.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
+      }
+      if (!Number.isFinite(price) || price < 0) {
+        const error = new Error('Enter a valid treatment price.');
+        error.code = 'INVALID_TREATMENT';
+        throw error;
+      }
+
+      const doctorIds = Array.isArray(input.doctorIds)
+        ? input.doctorIds.map((id) => String(id)).filter(Boolean).slice(0, 2)
+        : Array.isArray(current.doctorIds)
+          ? current.doctorIds
+          : undefined;
+
+      const updated = {
+        ...current,
+        name,
+        description,
+        category,
+        department: category,
+        durationMin,
+        duration: durationText,
+        price,
+        unit: session,
+        session,
+        sessions,
+        ...(doctorIds ? { doctorIds } : {}),
+        imageUri:
+          input.imageUri !== undefined
+            ? input.imageUri
+              ? String(input.imageUri)
+              : null
+            : current.imageUri || null,
+        updatedAt: new Date().toISOString(),
+      };
+      customTreatments[index] = updated;
+      return formatTreatmentItem(updated, branchId);
+    },
+    deleteManagerTreatment(branchId, id) {
+      const existing = this.getManagerTreatment(id, branchId);
+      if (!existing) return null;
+      const index = customTreatments.findIndex(
+        (item) => item.id === id && item.branchId === branchId
+      );
+      if (index >= 0) customTreatments.splice(index, 1);
+      deletedTreatmentKeys.add(treatmentDeleteKey(branchId, id));
+      return existing;
     },
     listBranches() {
       return { items: branches };

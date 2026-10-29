@@ -299,6 +299,44 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, ...clinic.listManagerTreatments(req.user.branchId) });
   });
 
+  app.get('/api/manager/treatments/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.getManagerTreatment(req.params.id, req.user.branchId);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Treatment not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.post('/api/manager/treatments', requireUser, requireManager, (req, res) => {
+    try {
+      const item = clinic.createManagerTreatment(req.user.branchId, req.body || {});
+      if (!item) throw new ApiError(404, 'NOT_FOUND', 'Branch not found.');
+      res.status(201).json({ ok: true, item });
+    } catch (err) {
+      if (err?.code === 'INVALID_TREATMENT') {
+        throw new ApiError(400, 'INVALID_TREATMENT', err.message);
+      }
+      throw err;
+    }
+  });
+
+  app.patch('/api/manager/treatments/:id', requireUser, requireManager, (req, res) => {
+    try {
+      const item = clinic.updateManagerTreatment(req.user.branchId, req.params.id, req.body || {});
+      if (!item) throw new ApiError(404, 'NOT_FOUND', 'Treatment not found.');
+      res.json({ ok: true, item });
+    } catch (err) {
+      if (err?.code === 'INVALID_TREATMENT') {
+        throw new ApiError(400, 'INVALID_TREATMENT', err.message);
+      }
+      throw err;
+    }
+  });
+
+  app.delete('/api/manager/treatments/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.deleteManagerTreatment(req.user.branchId, req.params.id);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Treatment not found.');
+    res.json({ ok: true, item });
+  });
+
   app.get('/api/manager/doctors', requireUser, requireManager, (req, res) => {
     res.json({ ok: true, ...clinic.listManagerDoctors(req.user.branchId) });
   });
