@@ -363,6 +363,28 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, item });
   });
 
+  function normalizeWeeklySchedule(raw) {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    if (!raw || typeof raw !== 'object') return null;
+    const weekly = {};
+    let any = false;
+    for (const day of days) {
+      const item = raw[day];
+      if (!item || typeof item !== 'object') {
+        weekly[day] = { enabled: false, start: '09:00 AM', end: '05:00 PM' };
+        continue;
+      }
+      const enabled = Boolean(item.enabled);
+      if (enabled) any = true;
+      weekly[day] = {
+        enabled,
+        start: String(item.start || '09:00 AM').trim(),
+        end: String(item.end || '05:00 PM').trim(),
+      };
+    }
+    return any ? weekly : null;
+  }
+
   function doctorInput(body) {
     const name = String(body?.name || '').trim();
     const specialty = String(body?.specialty || '').trim();
@@ -370,6 +392,10 @@ function createApp({ redis, mailer, users, config }) {
       throw new ApiError(400, 'INVALID_DOCTOR', 'name and specialty are required.');
     }
     const contact = body?.contact || {};
+    const weeklySchedule = normalizeWeeklySchedule(body?.weeklySchedule);
+    const firstDay = weeklySchedule
+      ? Object.values(weeklySchedule).find((d) => d.enabled)
+      : null;
     return {
       name,
       specialty,
@@ -377,9 +403,10 @@ function createApp({ redis, mailer, users, config }) {
       status: body?.status === 'inactive' ? 'inactive' : 'active',
       availability: String(body?.availability || 'Available').trim(),
       schedule: {
-        start: String(body?.schedule?.start || '09:00 AM').trim(),
-        end: String(body?.schedule?.end || '05:00 PM').trim(),
+        start: String(body?.schedule?.start || firstDay?.start || '09:00 AM').trim(),
+        end: String(body?.schedule?.end || firstDay?.end || '05:00 PM').trim(),
       },
+      weeklySchedule,
       contact: {
         phone: String(contact.phone || '').trim(),
         email: String(contact.email || '').trim(),

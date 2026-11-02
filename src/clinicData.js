@@ -1408,6 +1408,7 @@ function createClinicStore(options = {}) {
         contact: input.contact || { phone: '', email: '' },
         availability: input.availability || 'Available',
         schedule: input.schedule || { start: '09:00 AM', end: '05:00 PM' },
+        weeklySchedule: input.weeklySchedule || null,
         consults: 0,
         score: 0,
         branchId,
@@ -1427,6 +1428,8 @@ function createClinicStore(options = {}) {
         contact: input.contact || doctor.contact,
         availability: input.availability || doctor.availability,
         schedule: input.schedule || doctor.schedule,
+        weeklySchedule:
+          input.weeklySchedule !== undefined ? input.weeklySchedule : doctor.weeklySchedule,
       });
       return { ...doctor, clinic: clinic.name };
     },
