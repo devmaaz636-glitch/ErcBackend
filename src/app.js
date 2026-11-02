@@ -349,6 +349,12 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, ...clinic.listManagerAlerts(req.user.branchId) });
   });
 
+  app.get('/api/manager/alerts/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.getManagerAlert(req.user.branchId, req.params.id);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Alert not found.');
+    res.json({ ok: true, item });
+  });
+
   app.patch('/api/manager/alerts/:id', requireUser, requireManager, (req, res) => {
     const item = clinic.updateManagerAlert(req.user.branchId, req.params.id, req.body || {});
     if (!item) throw new ApiError(404, 'NOT_FOUND', 'Alert not found.');

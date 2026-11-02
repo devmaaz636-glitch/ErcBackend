@@ -970,18 +970,110 @@ function createClinicStore(options = {}) {
       status: 'unread',
       actionNeeded: true,
       resolvedAction: null,
+      investigation: {
+        headline: 'Refund Spike',
+        subtitle: 'Unusual Refund Spike activity detected',
+        metricLabel: 'Refund Spike',
+        metricValue: 18,
+        paceLabel: 'Normal pace',
+        paceValue: '3.8x',
+        statusLabel: 'Needs Investigation',
+        performance: {
+          normalLabel: 'Normal Refunds',
+          normal: 5,
+          currentLabel: 'Current Refunds',
+          current: 18,
+          changeLabel: 'Increase',
+          change: '+260%',
+        },
+        related: ['Recent refund requests', 'Recent booking activity'],
+      },
+      requestDetail: {
+        kind: 'refund',
+        code: 'RF-1048',
+        label: 'Booking Re-schedule',
+        status: 'Pending',
+        submittedAt: '08 Oct 2026 - 10:30 AM',
+        rescheduleDate: '12/03/26',
+        rescheduleTime: '09:30 AM',
+        originalDate: '10/03/26',
+        originalTime: '10:30 AM',
+        patientName: 'Maaz',
+        bookingReference: 'APT-1024 · Laser Treatment · Dr. Sarah Malik',
+        paymentMethod: 'Card · TXN-88421',
+        activity: [
+          {
+            id: 'a1',
+            title: 'Date request submitted',
+            subtitle: '08 Oct 2026 - 10:30 AM · Clinic Manager',
+            state: 'done',
+          },
+          {
+            id: 'a2',
+            title: 'Awaiting Regional Admin decision',
+            subtitle: 'Pending authorisation',
+            state: 'pending',
+          },
+        ],
+      },
     },
     {
       id: 'malert-2',
       title: 'Booking Drop',
-      clock: '09:18 AM',
+      clock: '10:32 AM',
       time: 'Today',
-      body: 'Booking volume fell below the configured alert threshold.',
+      body: 'Unusual Booking Drop activity detected',
       detail: 'Investigate schedule and staffing coverage.',
       type: 'booking',
       status: 'unread',
       actionNeeded: true,
       resolvedAction: null,
+      investigation: {
+        headline: 'Booking Drop',
+        subtitle: 'Unusual Booking Drop activity detected',
+        metricLabel: 'Booking Drop',
+        metricValue: 18,
+        paceLabel: 'Normal pace',
+        paceValue: '3.8x',
+        statusLabel: 'Needs Investigation',
+        performance: {
+          normalLabel: 'Normal Booking',
+          normal: 5,
+          currentLabel: 'Current Booking',
+          current: 18,
+          changeLabel: 'Increase',
+          change: '+260%',
+        },
+        related: ['Recent Booking requests', 'Recent booking activity'],
+      },
+      requestDetail: {
+        kind: 'reschedule',
+        code: 'RF-1048',
+        label: 'Booking Re schedule',
+        status: 'Pending',
+        submittedAt: '06 Oct 2026 - 10:30 AM',
+        rescheduleDate: '12/03/26',
+        rescheduleTime: '09:30 AM',
+        originalDate: '10/03/26',
+        originalTime: '10:30 AM',
+        patientName: 'Maaz',
+        bookingReference: 'APT-1024 · Laser Treatment · Dr. Sarah Malik',
+        paymentMethod: 'Card · TXN-88421',
+        activity: [
+          {
+            id: 'a1',
+            title: 'Date request submitted',
+            subtitle: '06 Oct 2026 - 10:30 AM · Clinic Manager',
+            state: 'done',
+          },
+          {
+            id: 'a2',
+            title: 'Awaiting Regional Admin decision',
+            subtitle: 'Pending authorisation',
+            state: 'pending',
+          },
+        ],
+      },
     },
     {
       id: 'malert-3',
@@ -1443,22 +1535,67 @@ function createClinicStore(options = {}) {
         items,
       };
     },
-    listManagerAlerts(branchId) {
+    hydrateManagerAlert(alert, branchId) {
       const branch = branchById(branchId);
       const branchName = branch?.name || 'Assigned Branch';
+      const region = branch?.region || null;
+      const regionLabel = region ? `${branchName}, ${region}` : branchName;
       const pendingRequest = appointmentRequests.find(
         (request) => request.branchId === branchId && String(request.status).toLowerCase() === 'pending'
       );
-      const items = managerAlertsSeed.map((alert) => ({
+      const requestDetail = alert.requestDetail
+        ? {
+            ...alert.requestDetail,
+            branchName,
+            region,
+            regionLabel,
+            patientName: alert.requestDetail.patientName || pendingRequest?.patient || 'Maaz',
+            bookingReference:
+              alert.requestDetail.bookingReference ||
+              (pendingRequest
+                ? `${pendingRequest.appointmentId || pendingRequest.id} · ${pendingRequest.treatment} · ${pendingRequest.doctor}`
+                : 'APT-1024 · Laser Treatment · Dr. Sarah Malik'),
+            paymentMethod: alert.requestDetail.paymentMethod || 'Card · TXN-88421',
+            activity: alert.requestDetail.activity || [
+              {
+                id: 'a1',
+                title: 'Date request submitted',
+                subtitle: `${alert.requestDetail.submittedAt || 'Today'} · Clinic Manager`,
+                state: 'done',
+              },
+              {
+                id: 'a2',
+                title: 'Awaiting Regional Admin decision',
+                subtitle: 'Pending authorisation',
+                state: 'pending',
+              },
+            ],
+          }
+        : null;
+      return {
         ...alert,
         branchId,
         branchName,
-        // Prefer a live pending request for this branch when reviewing from Alerts.
+        region,
+        regionLabel,
+        detectedLabel: `${alert.time || 'Today'}, ${alert.clock || ''}`.trim(),
+        investigation: alert.investigation
+          ? {
+              ...alert.investigation,
+              branchName,
+              region,
+            }
+          : null,
+        requestDetail,
         requestId:
           alert.primaryAction === 'Review Request'
             ? pendingRequest?.id || alert.requestId || null
             : alert.requestId || null,
-      }));
+      };
+    },
+    listManagerAlerts(branchId) {
+      const branch = branchById(branchId);
+      const items = managerAlertsSeed.map((alert) => this.hydrateManagerAlert(alert, branchId));
       const unread = items.filter((item) => item.status === 'unread').length;
       const actionNeeded = items.filter((item) => item.actionNeeded).length;
       return {
@@ -1475,6 +1612,11 @@ function createClinicStore(options = {}) {
         items,
       };
     },
+    getManagerAlert(branchId, id) {
+      const alert = managerAlertsSeed.find((item) => item.id === id);
+      if (!alert) return null;
+      return this.hydrateManagerAlert(alert, branchId);
+    },
     updateManagerAlert(branchId, id, input = {}) {
       const alert = managerAlertsSeed.find((item) => item.id === id);
       if (!alert) return null;
@@ -1482,15 +1624,42 @@ function createClinicStore(options = {}) {
       const action = String(input.action || '').toLowerCase();
       if (action === 'investigate') {
         alert.status = 'acknowledged';
-        alert.actionNeeded = false;
+        alert.actionNeeded = true;
         alert.resolvedAction = 'investigate';
-        alert.primaryAction = null;
         alert.body = alert.body || alert.detail || 'Alert marked for investigation.';
-      } else if (action === 'decline') {
+        // Keep mock status copy so Investigate screen matches design while testing.
+        if (alert.investigation && !alert.investigation.statusLabel) {
+          alert.investigation = {
+            ...alert.investigation,
+            statusLabel: 'Needs Investigation',
+          };
+        }
+      } else if (action === 'decline' || action === 'decline_reschedule') {
         alert.status = 'declined';
         alert.actionNeeded = false;
         alert.resolvedAction = 'decline';
         alert.primaryAction = null;
+        alert.decision = {
+          action: 'decline',
+          preferTime: input.preferTime || null,
+          reason: input.reason || null,
+          decidedAt: new Date().toISOString(),
+        };
+        if (alert.requestDetail) {
+          alert.requestDetail = { ...alert.requestDetail, status: 'Declined' };
+        }
+      } else if (action === 'approve_reschedule' || action === 'approve') {
+        alert.status = 'reviewed';
+        alert.actionNeeded = false;
+        alert.resolvedAction = 'approve';
+        alert.primaryAction = null;
+        alert.decision = {
+          action: 'approve',
+          decidedAt: new Date().toISOString(),
+        };
+        if (alert.requestDetail) {
+          alert.requestDetail = { ...alert.requestDetail, status: 'Approved' };
+        }
       } else if (action === 'review') {
         alert.status = 'reviewed';
         alert.actionNeeded = false;
@@ -1504,12 +1673,7 @@ function createClinicStore(options = {}) {
       }
 
       alert.updatedAt = new Date().toISOString();
-      const branch = branchById(branchId);
-      return {
-        ...alert,
-        branchId,
-        branchName: branch?.name || 'Assigned Branch',
-      };
+      return this.hydrateManagerAlert(alert, branchId);
     },
     getManagerDoctor(id, branchId) {
       const clinic = branchById(branchId);
