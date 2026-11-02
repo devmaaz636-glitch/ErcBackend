@@ -341,6 +341,20 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, ...clinic.listManagerDoctors(req.user.branchId) });
   });
 
+  app.get('/api/manager/patients', requireUser, requireManager, (req, res) => {
+    res.json({ ok: true, ...clinic.listManagerPatients(req.user.branchId) });
+  });
+
+  app.get('/api/manager/alerts', requireUser, requireManager, (req, res) => {
+    res.json({ ok: true, ...clinic.listManagerAlerts(req.user.branchId) });
+  });
+
+  app.patch('/api/manager/alerts/:id', requireUser, requireManager, (req, res) => {
+    const item = clinic.updateManagerAlert(req.user.branchId, req.params.id, req.body || {});
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Alert not found.');
+    res.json({ ok: true, item });
+  });
+
   app.get('/api/manager/doctors/:id', requireUser, requireManager, (req, res) => {
     const item = clinic.getManagerDoctor(req.params.id, req.user.branchId);
     if (!item || item.status === 'inactive') {

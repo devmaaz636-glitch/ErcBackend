@@ -804,26 +804,102 @@ function createClinicStore(options = {}) {
       id: 'att-1',
       title: 'Refund Spike Detected',
       time: '5 hr ago',
+      clock: '10:52 AM',
       body: 'Dubai Branch: 18 refunds requested (~3.8× normal pace).',
+      detail: 'Reviewed by Admin for unusual refund pace.',
       type: 'refund',
+      status: 'acknowledged',
       branchId: 'br-dubai',
+      branchName: 'Dubai Branch',
     },
     {
       id: 'att-2',
       title: 'Booking Drop Detected',
       time: '5 hr ago',
+      clock: '09:18 AM',
       body: 'New York Branch booking volume fell below the alert threshold.',
+      detail: 'Booking volume fell below the configured alert threshold.',
       type: 'booking',
+      status: 'unread',
       branchId: 'br-nyc',
+      branchName: 'New York Branch',
     },
     {
       id: 'att-3',
       title: '3 Approvals Pending',
       time: '5 hr ago',
+      clock: '08:40 AM',
       body: 'Clinic manager account requests requiring regional admin review.',
+      detail: 'New manager account awaiting approval.',
       type: 'accountRequests',
+      status: 'action',
       branchId: null,
+      branchName: 'Regional',
     },
+  ];
+
+  const managerAlertsSeed = [
+    {
+      id: 'malert-1',
+      title: 'Refund Spike',
+      clock: '10:52 AM',
+      time: 'Today',
+      body: 'Unusual refund pace detected at this branch.',
+      detail: '18 refunds requested (~3.8× normal pace).',
+      type: 'refund',
+      status: 'unread',
+      actionNeeded: true,
+      resolvedAction: null,
+    },
+    {
+      id: 'malert-2',
+      title: 'Booking Drop',
+      clock: '09:18 AM',
+      time: 'Today',
+      body: 'Booking volume fell below the configured alert threshold.',
+      detail: 'Investigate schedule and staffing coverage.',
+      type: 'booking',
+      status: 'unread',
+      actionNeeded: true,
+      resolvedAction: null,
+    },
+    {
+      id: 'malert-3',
+      title: 'Clinic Manager Request',
+      clock: '08:40 AM',
+      time: 'Today',
+      body: 'Bookings increased by 21%. New appointment request awaiting approval.',
+      detail: 'Review the incoming appointment request.',
+      type: 'accountRequests',
+      status: 'action',
+      actionNeeded: true,
+      primaryAction: 'Review Request',
+      requestId: 'req-1',
+      resolvedAction: null,
+    },
+    {
+      id: 'malert-4',
+      title: 'Capacity Near Limit',
+      clock: 'Yesterday',
+      time: 'Yesterday',
+      body: 'Branch utilisation is approaching its configured capacity limit.',
+      detail: 'Consider opening extra slots this week.',
+      type: 'capacity',
+      status: 'read',
+      actionNeeded: false,
+      resolvedAction: null,
+    },
+  ];
+
+  const patientsCatalog = [
+    { id: 'PT-3001', name: 'Maaz Don', category: 'Hair Transplant', consults: 42 },
+    { id: 'PT-3002', name: 'Sataish', category: 'Laser Treatment', consults: 28 },
+    { id: 'PT-3003', name: 'Dleep', category: 'Acne', consults: 16 },
+    { id: 'PT-3004', name: 'Rajinder', category: 'Mummy Makeover', consults: 11 },
+    { id: 'PT-3005', name: 'Ahsan Jamal', category: 'Hair Transplant', consults: 36 },
+    { id: 'PT-3006', name: 'Sara Ahmed', category: 'Laser Treatment', consults: 22 },
+    { id: 'PT-3007', name: 'Nora Malik', category: 'Acne', consults: 9 },
+    { id: 'PT-3008', name: 'Khalid Mansour', category: 'Laser Treatment', consults: 18 },
   ];
 
   function countByStatus(list, status) {
@@ -1197,6 +1273,122 @@ function createClinicStore(options = {}) {
         items: doctors
           .filter((doctor) => doctor.branchId === branchId && doctor.status !== 'inactive')
           .map((doctor) => ({ ...doctor, clinic: clinic?.name || null })),
+      };
+    },
+    listManagerPatients(branchId) {
+      const branch = branchById(branchId);
+      const scoped = scopedAppointments(branchId);
+      const byId = new Map();
+
+      for (const row of patientsCatalog) {
+        byId.set(row.id, {
+          ...row,
+          branchId,
+          branchName: branch?.name || null,
+          treatment: row.category,
+        });
+      }
+
+      for (const apt of scoped) {
+        const id = apt.patientId || `PT-${apt.id}`;
+        const prev = byId.get(id);
+        byId.set(id, {
+          id,
+          name: apt.patient || prev?.name || 'Patient',
+          category: apt.treatment || apt.department || prev?.category || 'General',
+          treatment: apt.treatment || prev?.treatment || 'Treatment',
+          consults: (prev?.consults || 0) + 1,
+          branchId,
+          branchName: branch?.name || apt.clinic || null,
+          lastVisit: apt.date || null,
+          doctor: apt.doctor || null,
+        });
+      }
+
+      const items = Array.from(byId.values()).sort((a, b) =>
+        String(a.name).localeCompare(String(b.name))
+      );
+      const categories = [
+        'All',
+        ...Array.from(new Set(items.map((item) => item.category).filter(Boolean))),
+      ];
+
+      return {
+        categories,
+        currency: REGION_CURRENCY[branch?.region] || 'AED',
+        region: branch?.region || null,
+        branch: branch
+          ? { id: branch.id, name: branch.name, city: branch.city, region: branch.region }
+          : null,
+        items,
+      };
+    },
+    listManagerAlerts(branchId) {
+      const branch = branchById(branchId);
+      const branchName = branch?.name || 'Assigned Branch';
+      const pendingRequest = appointmentRequests.find(
+        (request) => request.branchId === branchId && String(request.status).toLowerCase() === 'pending'
+      );
+      const items = managerAlertsSeed.map((alert) => ({
+        ...alert,
+        branchId,
+        branchName,
+        // Prefer a live pending request for this branch when reviewing from Alerts.
+        requestId:
+          alert.primaryAction === 'Review Request'
+            ? pendingRequest?.id || alert.requestId || null
+            : alert.requestId || null,
+      }));
+      const unread = items.filter((item) => item.status === 'unread').length;
+      const actionNeeded = items.filter((item) => item.actionNeeded).length;
+      return {
+        stats: {
+          all: items.length,
+          unread,
+          actionNeeded,
+        },
+        filters: ['All', 'Unread', 'Action Required'],
+        region: branch?.region || null,
+        branch: branch
+          ? { id: branch.id, name: branch.name, city: branch.city, region: branch.region }
+          : null,
+        items,
+      };
+    },
+    updateManagerAlert(branchId, id, input = {}) {
+      const alert = managerAlertsSeed.find((item) => item.id === id);
+      if (!alert) return null;
+
+      const action = String(input.action || '').toLowerCase();
+      if (action === 'investigate') {
+        alert.status = 'acknowledged';
+        alert.actionNeeded = false;
+        alert.resolvedAction = 'investigate';
+        alert.primaryAction = null;
+        alert.body = alert.body || alert.detail || 'Alert marked for investigation.';
+      } else if (action === 'decline') {
+        alert.status = 'declined';
+        alert.actionNeeded = false;
+        alert.resolvedAction = 'decline';
+        alert.primaryAction = null;
+      } else if (action === 'review') {
+        alert.status = 'reviewed';
+        alert.actionNeeded = false;
+        alert.resolvedAction = 'review';
+        alert.primaryAction = null;
+      } else {
+        if (input.status) alert.status = String(input.status).toLowerCase();
+        if (typeof input.actionNeeded === 'boolean') alert.actionNeeded = input.actionNeeded;
+        if (input.resolvedAction != null) alert.resolvedAction = input.resolvedAction;
+        if (input.primaryAction === null) alert.primaryAction = null;
+      }
+
+      alert.updatedAt = new Date().toISOString();
+      const branch = branchById(branchId);
+      return {
+        ...alert,
+        branchId,
+        branchName: branch?.name || 'Assigned Branch',
       };
     },
     getManagerDoctor(id, branchId) {
