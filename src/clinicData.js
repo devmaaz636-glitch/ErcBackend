@@ -800,6 +800,64 @@ function createClinicStore(options = {}) {
     return 1;
   }
 
+  function normalizeRegionKey(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return 'UAE';
+    if (raw.includes('ksa') || raw.includes('saudi')) return 'KSA';
+    if (raw.includes('oman') || raw === 'om') return 'Oman';
+    if (raw.includes('pakistan') || raw === 'pk') return 'Pakistan';
+    if (raw.includes('usa') || raw.includes('united states') || raw === 'us') return 'USA';
+    if (raw.includes('uae') || raw.includes('emirates') || raw.includes('dubai')) return 'UAE';
+    return (
+      Object.keys(REGION_CURRENCY).find((key) => key.toLowerCase() === raw) || 'UAE'
+    );
+  }
+
+  function matchTreatmentCatalog(needle) {
+    const text = String(needle || '').trim().toLowerCase();
+    if (!text) return treatmentCatalog[0];
+    return (
+      treatmentCatalog.find((row) => String(row.name).toLowerCase() === text) ||
+      treatmentCatalog.find((row) => text.includes(String(row.name).toLowerCase())) ||
+      treatmentCatalog.find((row) => String(row.name).toLowerCase().includes(text)) ||
+      treatmentCatalog.find((row) => {
+        const category = String(row.category || '').toLowerCase();
+        return (
+          category === text ||
+          category.includes(text) ||
+          text.includes(category) ||
+          text.includes(category.split(' ')[0])
+        );
+      }) ||
+      treatmentCatalog[0]
+    );
+  }
+
+  function localizePatientAppointment(apt, branch, catalog) {
+    const region = normalizeRegionKey(branch?.region || apt.region || 'UAE');
+    const currency = REGION_CURRENCY[region] || 'AED';
+    const matched = matchTreatmentCatalog(apt.treatment || apt.category || catalog?.category);
+    const basePrice = Number(apt.basePrice != null ? apt.basePrice : matched?.basePrice) || 500;
+    const price =
+      apt.price != null && Number.isFinite(Number(apt.price)) && apt.currency === currency
+        ? Number(apt.price)
+        : Math.round(basePrice * regionPriceFactor(region));
+    const unit = apt.unit || apt.session || 'Per Session';
+    const durationMin = apt.durationMinutes || matched?.durationMin || parseDurationMinutes(apt.duration) || 30;
+    return {
+      treatment: matched?.name || apt.treatment || catalog?.category || 'Treatment',
+      department: apt.department || matched?.category || 'Clinic',
+      duration: apt.duration || `${durationMin} Minutes`,
+      durationMinutes: durationMin,
+      basePrice,
+      price,
+      currency,
+      unit,
+      priceLabel: `${currency} ${Number(price).toLocaleString('en-US')} ${unit}`,
+      region,
+    };
+  }
+
   function parseDurationMinutes(value) {
     if (typeof value === 'number' && Number.isFinite(value)) return Math.max(1, Math.round(value));
     const raw = String(value || '').trim();
@@ -1104,14 +1162,96 @@ function createClinicStore(options = {}) {
   ];
 
   const patientsCatalog = [
-    { id: 'PT-3001', name: 'Maaz Don', category: 'Hair Transplant', consults: 42 },
-    { id: 'PT-3002', name: 'Sataish', category: 'Laser Treatment', consults: 28 },
-    { id: 'PT-3003', name: 'Dleep', category: 'Acne', consults: 16 },
-    { id: 'PT-3004', name: 'Rajinder', category: 'Mummy Makeover', consults: 11 },
-    { id: 'PT-3005', name: 'Ahsan Jamal', category: 'Hair Transplant', consults: 36 },
-    { id: 'PT-3006', name: 'Sara Ahmed', category: 'Laser Treatment', consults: 22 },
-    { id: 'PT-3007', name: 'Nora Malik', category: 'Acne', consults: 9 },
-    { id: 'PT-3008', name: 'Khalid Mansour', category: 'Laser Treatment', consults: 18 },
+    {
+      id: 'PT-2848',
+      name: 'Ayesha Khan',
+      category: 'Laser Treatment',
+      consults: 12,
+      phone: '+971 50 XXX XXXX',
+      email: 'ayesha@royalclinic.com',
+      dateOfBirth: '11/11/1995',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3001',
+      name: 'Maaz Don',
+      category: 'Hair Transplant',
+      consults: 42,
+      phone: '+971 55 XXX XXXX',
+      email: 'maaz@royalclinic.com',
+      dateOfBirth: '04/12/1990',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3002',
+      name: 'Sataish',
+      category: 'Laser Treatment',
+      consults: 28,
+      phone: '+971 52 XXX XXXX',
+      email: 'sataish@royalclinic.com',
+      dateOfBirth: '08/03/1992',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3003',
+      name: 'Dleep',
+      category: 'Acne',
+      consults: 16,
+      phone: '+971 54 XXX XXXX',
+      email: 'dleep@royalclinic.com',
+      dateOfBirth: '01/15/1988',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3004',
+      name: 'Rajinder',
+      category: 'Mummy Makeover',
+      consults: 11,
+      phone: '+971 56 XXX XXXX',
+      email: 'rajinder@royalclinic.com',
+      dateOfBirth: '09/20/1985',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3005',
+      name: 'Ahsan Jamal',
+      category: 'Hair Transplant',
+      consults: 36,
+      phone: '+971 50 XXX 2061',
+      email: 'ahsan@royalclinic.com',
+      dateOfBirth: '02/28/1987',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3006',
+      name: 'Sara Ahmed',
+      category: 'Laser Treatment',
+      consults: 22,
+      phone: '+971 55 XXX 2070',
+      email: 'sara@royalclinic.com',
+      dateOfBirth: '07/07/1993',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3007',
+      name: 'Nora Malik',
+      category: 'Acne',
+      consults: 9,
+      phone: '+971 52 XXX XXXX',
+      email: 'nora@royalclinic.com',
+      dateOfBirth: '03/11/1996',
+      status: 'Registered Patient',
+    },
+    {
+      id: 'PT-3008',
+      name: 'Khalid Mansour',
+      category: 'Laser Treatment',
+      consults: 18,
+      phone: '+971 54 XXX 2110',
+      email: 'khalid@royalclinic.com',
+      dateOfBirth: '12/01/1989',
+      status: 'Registered Patient',
+    },
   ];
 
   function countByStatus(list, status) {
@@ -1487,6 +1627,169 @@ function createClinicStore(options = {}) {
           .map((doctor) => ({ ...doctor, clinic: clinic?.name || null })),
       };
     },
+    buildManagerPatientDetail(branchId, patientId, seed = null, regionOverride = null) {
+      const branch = branchById(branchId);
+      const region = normalizeRegionKey(regionOverride || branch?.region || 'UAE');
+      const currency = REGION_CURRENCY[region] || 'AED';
+      const regionBranch = {
+        ...branch,
+        region,
+        name: branch?.name || branch?.city || `${region} Clinic`,
+        city: branch?.city || region,
+      };
+      const scoped = scopedAppointments(branchId);
+      const catalog = patientsCatalog.find((row) => String(row.id) === String(patientId)) || seed;
+      const byName = catalog?.name ? String(catalog.name).toLowerCase() : '';
+      const defaultTx = matchTreatmentCatalog(catalog?.category || catalog?.treatment);
+
+      let appointments = scoped.filter(
+        (apt) =>
+          String(apt.patientId || '') === String(patientId) ||
+          (byName && String(apt.patient || '').toLowerCase() === byName)
+      );
+
+      // Demo appointments so Patient Detail always has testable Upcoming / Completed cards.
+      if (!appointments.length && catalog) {
+        appointments = [
+          {
+            id: `${patientId}-up-1`,
+            code: 'APT-UP-01',
+            patient: catalog.name,
+            patientId,
+            treatment: defaultTx?.name || catalog.category || 'Laser Hair Removal',
+            department: defaultTx?.category || 'Laser',
+            duration: `${defaultTx?.durationMin || 30} Minutes`,
+            basePrice: defaultTx?.basePrice || 500,
+            status: 'upcoming',
+            date: daysFrom(today, 2),
+            time: '09:30 AM',
+            doctor: 'Dr. Sarah Malik',
+            branchId,
+          },
+          {
+            id: `${patientId}-up-2`,
+            code: 'APT-UP-02',
+            patient: catalog.name,
+            patientId,
+            treatment: defaultTx?.name || catalog.category || 'Laser Hair Removal',
+            department: defaultTx?.category || 'Laser',
+            duration: `${defaultTx?.durationMin || 30} Minutes`,
+            basePrice: defaultTx?.basePrice || 500,
+            status: 'upcoming',
+            date: daysFrom(today, 5),
+            time: '11:00 AM',
+            doctor: 'Dr. Ali Khan',
+            branchId,
+          },
+          {
+            id: `${patientId}-done-1`,
+            code: 'APT-DN-01',
+            patient: catalog.name,
+            patientId,
+            treatment: defaultTx?.name || catalog.category || 'Laser Hair Removal',
+            department: defaultTx?.category || 'Laser',
+            duration: `${defaultTx?.durationMin || 30} Minutes`,
+            basePrice: defaultTx?.basePrice || 500,
+            status: 'completed',
+            date: daysFrom(today, -7),
+            time: '10:00 AM',
+            doctor: 'Dr. Sarah Malik',
+            branchId,
+          },
+          {
+            id: `${patientId}-done-2`,
+            code: 'APT-DN-02',
+            patient: catalog.name,
+            patientId,
+            treatment: defaultTx?.name || catalog.category || 'Laser Hair Removal',
+            department: defaultTx?.category || 'Laser',
+            duration: `${defaultTx?.durationMin || 30} Minutes`,
+            basePrice: defaultTx?.basePrice || 500,
+            status: 'completed',
+            date: daysFrom(today, -14),
+            time: '02:00 PM',
+            doctor: 'Dr. Ali Khan',
+            branchId,
+          },
+          {
+            id: `${patientId}-done-3`,
+            code: 'APT-DN-03',
+            patient: catalog.name,
+            patientId,
+            treatment: defaultTx?.name || catalog.category || 'Laser Hair Removal',
+            department: defaultTx?.category || 'Laser',
+            duration: `${defaultTx?.durationMin || 30} Minutes`,
+            basePrice: defaultTx?.basePrice || 500,
+            status: 'completed',
+            date: daysFrom(today, -21),
+            time: '04:00 PM',
+            doctor: 'Dr. Sarah Malik',
+            branchId,
+          },
+        ];
+      }
+
+      const mapped = appointments.map((apt) => {
+        const localized = localizePatientAppointment(apt, regionBranch, catalog);
+        return {
+          id: apt.id,
+          code: apt.code || apt.id,
+          treatment: localized.treatment,
+          department: localized.department,
+          duration: localized.duration,
+          durationMinutes: localized.durationMinutes,
+          basePrice: localized.basePrice,
+          price: localized.price,
+          currency: localized.currency,
+          unit: localized.unit,
+          priceLabel: localized.priceLabel,
+          region: localized.region,
+          status: String(apt.status || 'upcoming').toLowerCase(),
+          date: apt.date || null,
+          time: apt.time || null,
+          doctor: apt.doctor || null,
+          doctorSpecialty: apt.doctorSpecialty || localized.department || 'Specialist',
+          patient: apt.patient || catalog?.name || 'Patient',
+          patientId: apt.patientId || catalog?.id || patientId,
+          clinic: apt.clinic || regionBranch.name,
+          branch: apt.branch || regionBranch.name,
+          contactLabel: apt.contactLabel || catalog?.phone || 'View if permission allows',
+          bookingDate: apt.bookingDate || apt.date || null,
+          paymentStatus:
+            apt.paymentStatus ||
+            (String(apt.status).toLowerCase() === 'completed' ? 'paid' : 'pending'),
+          title: apt.title || null,
+        };
+      });
+
+      const upcoming = mapped.filter((apt) => apt.status === 'upcoming');
+      const completed = mapped.filter((apt) => apt.status === 'completed');
+      const total = mapped.length || Number(catalog?.consults) || 0;
+
+      return {
+        id: catalog?.id || patientId,
+        name: catalog?.name || 'Patient',
+        category: catalog?.category || 'General',
+        treatment: defaultTx?.name || catalog?.category || 'Treatment',
+        status: catalog?.status || 'Registered Patient',
+        phone: catalog?.phone || '+971 50 XXX XXXX',
+        email: catalog?.email || 'patient@royalclinic.com',
+        dateOfBirth: catalog?.dateOfBirth || '11/11/1995',
+        branchId,
+        branchName: regionBranch.name,
+        region,
+        currency,
+        photo: catalog?.photo || null,
+        consults: Number(catalog?.consults) || total,
+        stats: {
+          total: total || Number(catalog?.consults) || 0,
+          completed: completed.length,
+          upcoming: upcoming.length,
+        },
+        upcoming,
+        completed,
+      };
+    },
     listManagerPatients(branchId) {
       const branch = branchById(branchId);
       const scoped = scopedAppointments(branchId);
@@ -1510,6 +1813,10 @@ function createClinicStore(options = {}) {
           category: apt.treatment || apt.department || prev?.category || 'General',
           treatment: apt.treatment || prev?.treatment || 'Treatment',
           consults: (prev?.consults || 0) + 1,
+          phone: prev?.phone || '+971 50 XXX XXXX',
+          email: prev?.email || 'patient@royalclinic.com',
+          dateOfBirth: prev?.dateOfBirth || '11/11/1995',
+          status: prev?.status || 'Registered Patient',
           branchId,
           branchName: branch?.name || apt.clinic || null,
           lastVisit: apt.date || null,
@@ -1534,6 +1841,14 @@ function createClinicStore(options = {}) {
           : null,
         items,
       };
+    },
+    getManagerPatient(branchId, patientId, regionOverride = null) {
+      const listed = this.listManagerPatients(branchId).items || [];
+      const seed = listed.find((row) => String(row.id) === String(patientId)) || null;
+      if (!seed && !patientsCatalog.find((row) => String(row.id) === String(patientId))) {
+        return null;
+      }
+      return this.buildManagerPatientDetail(branchId, patientId, seed, regionOverride);
     },
     hydrateManagerAlert(alert, branchId) {
       const branch = branchById(branchId);
