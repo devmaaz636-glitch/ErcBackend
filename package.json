@@ -11,7 +11,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test test/*.test.js",
-    "set-role": "node scripts/set-user-role.js"
+    "set-role": "node scripts/set-user-role.js",
+    "seed:managers": "node scripts/seed-clinic-managers.js"
   },
   "dependencies": {
     "cors": "^2.8.6",

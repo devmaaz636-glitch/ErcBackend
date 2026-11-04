@@ -160,79 +160,79 @@ function createClinicStore(options = {}) {
 
   const managers = [
     {
-      id: 'mgr-1',
-      name: 'Fatima Al Hashemi',
-      email: 'fatima.manager@enfieldroyal.com',
-      phone: '+971 50 123 4567',
+      id: 'mgr-ksa',
+      name: 'Ahmed Al-Faisal',
+      email: 'ahmed.ksa@erc-demo.com',
+      phone: '+966 55 100 2001',
+      role: 'Clinic Manager',
+      status: 'active',
+      branchId: 'br-riyadh',
+      employeeId: 'CM-2001',
+      joinedAt: '2024-01-15',
+      patientsThisMonth: 278,
+      appointmentsToday: 22,
+      staffCount: 11,
+      rating: 4.7,
+    },
+    {
+      id: 'mgr-dubai',
+      name: 'Omar Hassan',
+      email: 'omar.dubai@erc-demo.com',
+      phone: '+971 50 100 2002',
       role: 'Clinic Manager',
       status: 'active',
       branchId: 'br-dubai',
-      employeeId: 'CM-1001',
-      joinedAt: '2024-03-12',
+      employeeId: 'CM-2002',
+      joinedAt: '2024-02-10',
       patientsThisMonth: 312,
       appointmentsToday: 28,
       staffCount: 14,
       rating: 4.8,
     },
     {
-      id: 'mgr-2',
-      name: 'Omar Al Rashid',
-      email: 'omar.manager@enfieldroyal.com',
-      phone: '+966 55 987 6543',
-      role: 'Clinic Manager',
-      status: 'active',
-      branchId: 'br-riyadh',
-      employeeId: 'CM-1002',
-      joinedAt: '2023-11-02',
-      patientsThisMonth: 278,
-      appointmentsToday: 22,
-      staffCount: 11,
-      rating: 4.6,
-    },
-    {
-      id: 'mgr-3',
-      name: 'Aisha Al Balushi',
-      email: 'aisha.manager@enfieldroyal.com',
-      phone: '+968 92 111 2233',
+      id: 'mgr-oman',
+      name: 'Khalid Al-Balushi',
+      email: 'khalid.oman@erc-demo.com',
+      phone: '+968 92 100 2003',
       role: 'Clinic Manager',
       status: 'active',
       branchId: 'br-muscat',
-      employeeId: 'CM-1003',
-      joinedAt: '2024-07-18',
+      employeeId: 'CM-2003',
+      joinedAt: '2024-03-22',
       patientsThisMonth: 190,
       appointmentsToday: 16,
       staffCount: 9,
+      rating: 4.6,
+    },
+    {
+      id: 'mgr-usa',
+      name: 'James Anderson',
+      email: 'james.usa@erc-demo.com',
+      phone: '+1 212 555 2004',
+      role: 'Clinic Manager',
+      status: 'active',
+      branchId: 'br-nyc',
+      employeeId: 'CM-2004',
+      joinedAt: '2024-04-05',
+      patientsThisMonth: 164,
+      appointmentsToday: 14,
+      staffCount: 8,
       rating: 4.5,
     },
     {
-      id: 'mgr-4',
-      name: 'Hassan Raza',
-      email: 'hassan.manager@enfieldroyal.com',
-      phone: '+92 300 555 7788',
+      id: 'mgr-pk',
+      name: 'Hamza Khan',
+      email: 'hamza.pk@erc-demo.com',
+      phone: '+92 300 555 2005',
       role: 'Clinic Manager',
-      status: 'invited',
+      status: 'active',
       branchId: 'br-lahore',
-      employeeId: 'CM-1004',
-      joinedAt: '2026-09-01',
-      patientsThisMonth: 0,
-      appointmentsToday: 0,
-      staffCount: 7,
-      rating: null,
-    },
-    {
-      id: 'mgr-5',
-      name: 'Elena Vargas',
-      email: 'elena.manager@enfieldroyal.com',
-      phone: '+1 212 555 0199',
-      role: 'Clinic Manager',
-      status: 'inactive',
-      branchId: 'br-nyc',
-      employeeId: 'CM-1005',
-      joinedAt: '2022-05-20',
-      patientsThisMonth: 64,
-      appointmentsToday: 4,
-      staffCount: 8,
-      rating: 4.1,
+      employeeId: 'CM-2005',
+      joinedAt: '2024-05-18',
+      patientsThisMonth: 210,
+      appointmentsToday: 18,
+      staffCount: 10,
+      rating: 4.6,
     },
   ];
 
@@ -1504,11 +1504,32 @@ function createClinicStore(options = {}) {
       stats: homeStats(),
       attention,
       branches: leaderboard,
-      doctors: doctors.map((d) => ({
-        ...d,
-        clinic: branchById(d.branchId)?.name || null,
+      doctors: doctors
+        .filter((d) => d.status !== 'inactive')
+        .map((d) => {
+          const branch = branchById(d.branchId);
+          return {
+            ...d,
+            clinic: branch
+              ? { id: branch.id, name: branch.name, city: branch.city, region: branch.region }
+              : d.clinic || null,
+            branchName: branch?.name || null,
+            branch: branch?.name || null,
+          };
+        })
+        .sort(
+          (a, b) =>
+            Number(b.consults || 0) - Number(a.consults || 0) ||
+            String(a.name || '').localeCompare(String(b.name || ''))
+        ),
+      managerPreview: managers.filter((m) => m.status === 'active').map(enrichManager),
+      appointmentRequests: appointmentRequests.map((request) => ({
+        ...request,
+        status: String(request.status || 'pending').toLowerCase(),
+        requestedTime: request.requestedTime || 'Time pending',
+        requestedDate: request.requestedDate || today,
+        branch: branchById(request.branchId)?.name || request.branch || null,
       })),
-      managerPreview: managers.filter((m) => m.status === 'active').slice(0, 3).map(enrichManager),
     };
   }
 
@@ -1573,13 +1594,25 @@ function createClinicStore(options = {}) {
     },
     getManagerDashboard,
     listManagerAppointments(branchId) {
-      const items = scopedAppointments(branchId);
+      const items = scopedAppointments(branchId).map((apt) => {
+        const doctor =
+          doctors.find(
+            (row) =>
+              row.branchId === branchId &&
+              (row.id === apt.doctorId ||
+                String(row.name || '').toLowerCase() === String(apt.doctor || '').toLowerCase())
+          ) || null;
+        return {
+          ...apt,
+          scheduleDate: apt.scheduleDate || doctor?.scheduleDate || doctor?.schedule?.date || null,
+          doctorScheduleDate: doctor?.scheduleDate || doctor?.schedule?.date || null,
+        };
+      });
       return { stats: scopedAppointmentStats(branchId), items };
     },
     getManagerAppointment(id, branchId) {
-      return (
-        scopedAppointments(branchId).find((a) => a.id === id || a.code === id) || null
-      );
+      const items = this.listManagerAppointments(branchId).items || [];
+      return items.find((a) => a.id === id || a.code === id) || null;
     },
     listManagerAppointmentRequests(branchId) {
       const items = appointmentRequests
@@ -1620,11 +1653,10 @@ function createClinicStore(options = {}) {
       return { ...request };
     },
     listManagerDoctors(branchId) {
-      const clinic = branchById(branchId);
       return {
         items: doctors
           .filter((doctor) => doctor.branchId === branchId && doctor.status !== 'inactive')
-          .map((doctor) => ({ ...doctor, clinic: clinic?.name || null })),
+          .map((doctor) => this.formatManagerDoctor(doctor, branchId)),
       };
     },
     buildManagerPatientDetail(branchId, patientId, seed = null, regionOverride = null) {
@@ -1731,6 +1763,12 @@ function createClinicStore(options = {}) {
 
       const mapped = appointments.map((apt) => {
         const localized = localizePatientAppointment(apt, regionBranch, catalog);
+        const dateValue = apt.date || null;
+        const parsedDate = dateValue ? new Date(`${dateValue}T00:00:00`) : null;
+        const dayLabel =
+          parsedDate && !Number.isNaN(parsedDate.getTime())
+            ? parsedDate.toLocaleDateString('en-US', { weekday: 'long' })
+            : null;
         return {
           id: apt.id,
           code: apt.code || apt.id,
@@ -1745,7 +1783,9 @@ function createClinicStore(options = {}) {
           priceLabel: localized.priceLabel,
           region: localized.region,
           status: String(apt.status || 'upcoming').toLowerCase(),
-          date: apt.date || null,
+          date: dateValue,
+          day: dayLabel,
+          dayLabel,
           time: apt.time || null,
           doctor: apt.doctor || null,
           doctorSpecialty: apt.doctorSpecialty || localized.department || 'Specialist',
@@ -1990,14 +2030,119 @@ function createClinicStore(options = {}) {
       alert.updatedAt = new Date().toISOString();
       return this.hydrateManagerAlert(alert, branchId);
     },
+    buildDefaultWeeklySchedule(schedule) {
+      const start = schedule?.start || '09:00 AM';
+      const end = schedule?.end || '05:00 PM';
+      const keys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      return keys.reduce((acc, key, index) => {
+        acc[key] = {
+          enabled: index < 5,
+          start,
+          end,
+        };
+        return acc;
+      }, {});
+    },
+    formatManagerDoctor(doctor, branchId) {
+      const clinic = branchById(branchId || doctor?.branchId);
+      if (!doctor) return null;
+      const clinicInfo = clinic
+        ? { id: clinic.id, name: clinic.name, city: clinic.city, region: clinic.region }
+        : null;
+      const weeklySchedule =
+        doctor.weeklySchedule && typeof doctor.weeklySchedule === 'object'
+          ? doctor.weeklySchedule
+          : this.buildDefaultWeeklySchedule(doctor.schedule);
+      const weekdayKeys = [
+        'sunday',
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+      ];
+      const todayKey = weekdayKeys[new Date().getDay()];
+      const todayHours = weeklySchedule[todayKey]?.enabled
+        ? weeklySchedule[todayKey]
+        : null;
+      const schedule = {
+        start: todayHours?.start || doctor.schedule?.start || '09:00 AM',
+        end: todayHours?.end || doctor.schedule?.end || '05:00 PM',
+        date: doctor.schedule?.date || doctor.scheduleDate || null,
+      };
+      const workingDays = [
+        { key: 'monday', label: 'Monday' },
+        { key: 'tuesday', label: 'Tuesday' },
+        { key: 'wednesday', label: 'Wednesday' },
+        { key: 'thursday', label: 'Thursday' },
+        { key: 'friday', label: 'Friday' },
+        { key: 'saturday', label: 'Saturday' },
+        { key: 'sunday', label: 'Sunday' },
+      ]
+        .filter((day) => weeklySchedule[day.key]?.enabled)
+        .map((day) => ({
+          key: day.key,
+          label: day.label,
+          start: weeklySchedule[day.key].start,
+          end: weeklySchedule[day.key].end,
+        }));
+      const todayAppointments = appointments
+        .filter(
+          (apt) =>
+            apt.date === today &&
+            (apt.doctorId === doctor.id ||
+              String(apt.doctor || '').toLowerCase() === String(doctor.name || '').toLowerCase())
+        )
+        .map((apt) => ({
+          id: apt.id,
+          treatment: apt.treatment || 'Consultation',
+          time: apt.time || schedule.start,
+          status: apt.status || 'upcoming',
+          patient: apt.patient || 'Patient',
+        }));
+      return {
+        ...doctor,
+        clinic: clinicInfo,
+        branchName: clinic?.name || doctor.branchName || null,
+        branch: clinic?.name || doctor.branch || null,
+        schedule,
+        weeklySchedule,
+        workingDays,
+        todayHours: todayHours
+          ? { start: todayHours.start, end: todayHours.end, working: true }
+          : { start: null, end: null, working: false },
+        todayAppointments,
+      };
+    },
+    getDoctor(id) {
+      const doctor = doctors.find((item) => item.id === id || item.code === id);
+      return this.formatManagerDoctor(doctor, doctor?.branchId);
+    },
+    getAppointmentRequest(id) {
+      const request = appointmentRequests.find((item) => item.id === id);
+      if (!request) return null;
+      return {
+        ...request,
+        status: String(request.status || 'pending').toLowerCase(),
+        requestedTime: request.requestedTime || 'Time pending',
+        requestedDate: request.requestedDate || today,
+        branch: branchById(request.branchId)?.name || request.branch || null,
+      };
+    },
     getManagerDoctor(id, branchId) {
-      const clinic = branchById(branchId);
       const doctor = doctors.find((item) => item.id === id && item.branchId === branchId);
-      return doctor ? { ...doctor, clinic: clinic?.name || null } : null;
+      return this.formatManagerDoctor(doctor, branchId);
     },
     createManagerDoctor(branchId, input) {
       const clinic = branchById(branchId);
       if (!clinic) return null;
+      const scheduleDate =
+        input.scheduleDate || input.schedule?.date || new Date().toISOString().slice(0, 10);
+      const schedule = {
+        ...(input.schedule || { start: '09:00 AM', end: '05:00 PM' }),
+        date: scheduleDate,
+      };
       const doctor = {
         id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name: input.name,
@@ -2006,19 +2151,28 @@ function createClinicStore(options = {}) {
         status: input.status || 'active',
         contact: input.contact || { phone: '', email: '' },
         availability: input.availability || 'Available',
-        schedule: input.schedule || { start: '09:00 AM', end: '05:00 PM' },
+        schedule,
+        scheduleDate,
         weeklySchedule: input.weeklySchedule || null,
         consults: 0,
         score: 0,
         branchId,
       };
       doctors.push(doctor);
-      return { ...doctor, clinic: clinic.name };
+      return this.formatManagerDoctor(doctor, branchId);
     },
     updateManagerDoctor(id, branchId, input) {
       const clinic = branchById(branchId);
       const doctor = doctors.find((item) => item.id === id && item.branchId === branchId);
       if (!clinic || !doctor) return null;
+      const scheduleDate =
+        input.scheduleDate !== undefined
+          ? input.scheduleDate
+          : input.schedule?.date || doctor.scheduleDate || doctor.schedule?.date || null;
+      const schedule = {
+        ...(input.schedule || doctor.schedule || { start: '09:00 AM', end: '05:00 PM' }),
+        date: scheduleDate,
+      };
       Object.assign(doctor, {
         name: input.name,
         specialty: input.specialty,
@@ -2026,11 +2180,12 @@ function createClinicStore(options = {}) {
         status: input.status || doctor.status,
         contact: input.contact || doctor.contact,
         availability: input.availability || doctor.availability,
-        schedule: input.schedule || doctor.schedule,
+        schedule,
+        scheduleDate,
         weeklySchedule:
           input.weeklySchedule !== undefined ? input.weeklySchedule : doctor.weeklySchedule,
       });
-      return { ...doctor, clinic: clinic.name };
+      return this.formatManagerDoctor(doctor, branchId);
     },
     deactivateManagerDoctor(id, branchId) {
       const doctor = doctors.find((item) => item.id === id && item.branchId === branchId);
@@ -2084,7 +2239,10 @@ function createClinicStore(options = {}) {
       const category = TREATMENT_CATEGORIES.includes(department)
         ? department
         : department || 'Skincare';
-      const durationMin = parseDurationMinutes(input.duration || input.durationMin);
+      const durationMin =
+        input.durationMin != null && Number.isFinite(Number(input.durationMin))
+          ? Math.max(1, Math.round(Number(input.durationMin)))
+          : parseDurationMinutes(input.duration || input.durationMin);
       const price = Number(input.price);
       const session = String(input.session || input.unit || 'Per Session').trim() || 'Per Session';
       const sessions = parseSessionCount(input.sessions != null ? input.sessions : session);
@@ -2172,9 +2330,12 @@ function createClinicStore(options = {}) {
       const category = TREATMENT_CATEGORIES.includes(department)
         ? department
         : department || current.category || 'Skincare';
-      const durationMin = parseDurationMinutes(
-        input.duration != null ? input.duration : current.duration || current.durationMin
-      );
+      const durationMin =
+        input.durationMin != null && Number.isFinite(Number(input.durationMin))
+          ? Math.max(1, Math.round(Number(input.durationMin)))
+          : parseDurationMinutes(
+              input.duration != null ? input.duration : current.duration || current.durationMin
+            );
       const durationText =
         String(input.duration != null ? input.duration : current.duration || '').trim() ||
         `${durationMin} Minutes`;

@@ -62,7 +62,8 @@ function createFirebaseUsers(firebaseConfig) {
         role: normalizeRole(decoded.role || decoded['https://enfieldroyalclinic.com/role']),
         clinicId: decoded.clinicId || decoded.branchId || null,
         branchId: decoded.branchId || decoded.clinicId || null,
-        name: decoded.name || '',
+        region: decoded.region || null,
+        name: decoded.name || decoded.displayName || '',
       };
     },
   };

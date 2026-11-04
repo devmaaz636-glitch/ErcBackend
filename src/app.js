@@ -130,14 +130,32 @@ function createApp({ redis, mailer, users, config }) {
     if (typeof users.getUser === 'function') {
       profile = await users.getUser(req.user.uid);
     }
+    const branchId = req.user.branchId || req.user.clinicId || null;
+    const branch =
+      branchId && typeof clinic.getBranch === 'function' ? clinic.getBranch(branchId) : null;
+    const region =
+      req.user.region ||
+      profile?.region ||
+      branch?.region ||
+      branch?.city ||
+      null;
     res.json({
       ok: true,
       user: {
         ...req.user,
         ...(profile || {}),
         role: req.user.role,
-        branchId: req.user.branchId,
-        clinicId: req.user.clinicId,
+        branchId,
+        clinicId: req.user.clinicId || branchId,
+        region,
+        branch: branch
+          ? {
+              id: branch.id,
+              name: branch.name,
+              city: branch.city,
+              region: branch.region,
+            }
+          : null,
       },
     });
   });
@@ -236,6 +254,18 @@ function createApp({ redis, mailer, users, config }) {
   app.get('/api/clinic/managers/:id', requireUser, requireRole('admin'), (req, res) => {
     const item = clinic.getManager(req.params.id);
     if (!item) throw new ApiError(404, 'NOT_FOUND', 'Clinic manager not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.get('/api/clinic/doctors/:id', requireUser, requireRole('admin'), (req, res) => {
+    const item = clinic.getDoctor(req.params.id);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Doctor not found.');
+    res.json({ ok: true, item });
+  });
+
+  app.get('/api/clinic/appointment-requests/:id', requireUser, requireRole('admin'), (req, res) => {
+    const item = clinic.getAppointmentRequest(req.params.id);
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment request not found.');
     res.json({ ok: true, item });
   });
 
