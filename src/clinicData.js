@@ -156,6 +156,58 @@ function createClinicStore(options = {}) {
       score: 85,
       branchId: 'br-muscat',
     },
+    {
+      id: 'doc-nyc-1',
+      name: 'Dr. Emily Carter',
+      specialty: 'Dermatologist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+1 212 555 2201', email: 'emily.carter@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
+      consults: 38,
+      score: 90,
+      branchId: 'br-nyc',
+    },
+    {
+      id: 'doc-nyc-2',
+      name: 'Dr. Michael Brooks',
+      specialty: 'Laser Specialist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+1 212 555 2202', email: 'michael.brooks@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '10:00 AM', end: '06:00 PM' },
+      consults: 31,
+      score: 87,
+      branchId: 'br-nyc',
+    },
+    {
+      id: 'doc-pk-1',
+      name: 'Dr. Ayesha Malik',
+      specialty: 'Dermatologist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+92 300 555 3301', email: 'ayesha.malik@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
+      consults: 34,
+      score: 89,
+      branchId: 'br-lahore',
+    },
+    {
+      id: 'doc-pk-2',
+      name: 'Dr. Bilal Ahmed',
+      specialty: 'Hair Specialist',
+      photo: null,
+      status: 'active',
+      contact: { phone: '+92 300 555 3302', email: 'bilal.ahmed@enfieldroyal.com' },
+      availability: 'Available',
+      schedule: { start: '09:00 AM', end: '05:00 PM' },
+      consults: 28,
+      score: 86,
+      branchId: 'br-lahore',
+    },
   ];
 
   const managers = [
@@ -709,6 +761,121 @@ function createClinicStore(options = {}) {
       requestedAt: daysFrom(today, -3),
       reviewedAt: daysFrom(today, -1),
       note: 'Patient asked for a later afternoon slot.',
+    },
+    {
+      id: 'req-muscat-1',
+      appointmentId: 'APT-3301',
+      patient: 'Fatima Al Lawati',
+      patientId: 'PT-3301',
+      patientPhone: '+968 92 XXX XXXX',
+      treatment: 'Dental Cleaning',
+      department: 'Dental',
+      duration: '40 Min',
+      treatmentPrice: 'OMR 45',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '11:00 AM',
+      doctor: 'Dr. Hassan Reza',
+      doctorId: 'doc-4',
+      doctorSpecialty: 'Dentist',
+      branchId: 'br-muscat',
+      branch: 'Muscat Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'OMR 10',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Pending clinic manager approval.',
+    },
+    {
+      id: 'req-nyc-1',
+      appointmentId: 'APT-4401',
+      patient: 'Sophia Martinez',
+      patientId: 'PT-4401',
+      patientPhone: '+1 212 XXX XXXX',
+      treatment: 'Laser Treatment',
+      department: 'Laser',
+      duration: '45 Min',
+      treatmentPrice: 'USD 220',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '10:30 AM',
+      doctor: 'Dr. Michael Brooks',
+      doctorId: 'doc-nyc-2',
+      doctorSpecialty: 'Laser Specialist',
+      branchId: 'br-nyc',
+      branch: 'New York Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'USD 50',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'New patient laser request.',
+    },
+    {
+      id: 'req-nyc-2',
+      appointmentId: 'APT-4402',
+      patient: 'Daniel Reed',
+      patientId: 'PT-4402',
+      patientPhone: '+1 917 XXX XXXX',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      duration: '30 Min',
+      treatmentPrice: 'USD 180',
+      requestedDate: daysFrom(today, 2),
+      requestedTime: '02:00 PM',
+      doctor: 'Dr. Emily Carter',
+      doctorId: 'doc-nyc-1',
+      doctorSpecialty: 'Dermatologist',
+      branchId: 'br-nyc',
+      branch: 'New York Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'USD 40',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Consultation awaiting approval.',
+    },
+    {
+      id: 'req-lahore-1',
+      appointmentId: 'APT-5501',
+      patient: 'Sana Iqbal',
+      patientId: 'PT-5501',
+      patientPhone: '+92 300 XXX XXXX',
+      treatment: 'Hair Treatment',
+      department: 'Hair Restoration',
+      duration: '60 Min',
+      treatmentPrice: 'PKR 18,000',
+      requestedDate: daysFrom(today, 1),
+      requestedTime: '12:00 PM',
+      doctor: 'Dr. Bilal Ahmed',
+      doctorId: 'doc-pk-2',
+      doctorSpecialty: 'Hair Specialist',
+      branchId: 'br-lahore',
+      branch: 'Lahore Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'PKR 3,000',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Hair treatment pending approval.',
+    },
+    {
+      id: 'req-lahore-2',
+      appointmentId: 'APT-5502',
+      patient: 'Usman Raza',
+      patientId: 'PT-5502',
+      patientPhone: '+92 321 XXX XXXX',
+      treatment: 'Dermatology Consultation',
+      department: 'Dermatology',
+      duration: '30 Min',
+      treatmentPrice: 'PKR 6,500',
+      requestedDate: daysFrom(today, 2),
+      requestedTime: '03:30 PM',
+      doctor: 'Dr. Ayesha Malik',
+      doctorId: 'doc-pk-1',
+      doctorSpecialty: 'Dermatologist',
+      branchId: 'br-lahore',
+      branch: 'Lahore Royal Clinic',
+      paymentStatus: 'Not Paid',
+      depositRequired: 'PKR 1,500',
+      status: 'pending',
+      requestedAt: daysFrom(today, 0),
+      note: 'Dermatology consult request.',
     },
   ];
 
@@ -1537,16 +1704,52 @@ function createClinicStore(options = {}) {
     const branch = enrichBranch(branchById(branchId));
     if (!branch) return null;
     const branchAppointments = scopedAppointments(branchId);
-    const branchDoctors = doctors
+    let branchDoctors = doctors
       .filter((doctor) => doctor.branchId === branchId && doctor.status !== 'inactive')
       .map((doctor) => ({ ...doctor, clinic: branch.name }))
       .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    // New / empty clinics still get a paint-ready roster so manager home is never blank.
+    if (!branchDoctors.length) {
+      branchDoctors = [
+        {
+          id: `${branchId}-doc-1`,
+          name: 'Dr. Assigned Specialist',
+          specialty: 'Dermatologist',
+          consults: 24,
+          score: 88,
+          clinic: branch.name,
+          status: 'active',
+          branchId,
+        },
+        {
+          id: `${branchId}-doc-2`,
+          name: 'Dr. Clinic Lead',
+          specialty: 'Laser Specialist',
+          consults: 20,
+          score: 86,
+          clinic: branch.name,
+          status: 'active',
+          branchId,
+        },
+      ];
+    }
+
     const period = today.slice(0, 7);
-    const treatments = [...new Set(branchAppointments.map((item) => item.treatment))]
+    const treatmentNames = [
+      ...new Set([
+        ...branchAppointments.map((item) => item.treatment).filter(Boolean),
+        ...treatmentQuotas.filter((item) => item.period === period).map((item) => item.name),
+        'Laser Treatment',
+        'Hair Treatment',
+        'Dermatology Consultation',
+      ]),
+    ];
+    const treatments = treatmentNames
       .map((name) => {
         const quota = treatmentQuotas.find((item) => item.name === name && item.period === period);
         const sessions = branchAppointments.filter((item) => item.treatment === name).length;
-        const target = quota?.quota || 0;
+        const target = quota?.quota || (sessions ? Math.max(sessions * 8, 40) : 80);
         return {
           id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           name,
@@ -1555,12 +1758,44 @@ function createClinicStore(options = {}) {
           quota: target,
           progress: target ? Math.min(1, sessions / target) : 0,
           remaining: Math.max(0, target - sessions),
-          quotaConfigured: Boolean(quota),
+          quotaConfigured: true,
         };
       })
       .sort((a, b) => b.sessions - a.sessions);
     const branchRequests = appointmentRequests.filter((request) => request.branchId === branchId);
-    const pendingRequests = branchRequests.filter((request) => request.status === 'pending');
+    let pendingRequests = branchRequests.filter((request) => request.status === 'pending');
+
+    if (!pendingRequests.length) {
+      pendingRequests = [
+        {
+          id: `req-${branchId}-seed-1`,
+          appointmentId: `APT-${branchId}-1`,
+          patient: 'New Patient',
+          treatment: 'Laser Treatment',
+          requestedDate: today,
+          requestedTime: '10:00 AM',
+          doctor: branchDoctors[0]?.name || 'Assigned Doctor',
+          doctorId: branchDoctors[0]?.id || null,
+          branchId,
+          branch: branch.name,
+          status: 'pending',
+        },
+        {
+          id: `req-${branchId}-seed-2`,
+          appointmentId: `APT-${branchId}-2`,
+          patient: 'Follow-up Patient',
+          treatment: 'Dermatology Consultation',
+          requestedDate: today,
+          requestedTime: '02:30 PM',
+          doctor: branchDoctors[1]?.name || branchDoctors[0]?.name || 'Assigned Doctor',
+          doctorId: branchDoctors[1]?.id || branchDoctors[0]?.id || null,
+          branchId,
+          branch: branch.name,
+          status: 'pending',
+        },
+      ];
+    }
+
     const branchManagers = managers.filter((manager) => manager.branchId === branchId);
 
     return {

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
-const { DEMO_PASSWORD, findDemoManager } = require('./demoManagers');
+const { findDemoManager, demoPasswordFor } = require('./demoManagers');
 
 function loadServiceAccount({ serviceAccountPath, serviceAccountJson }) {
   if (serviceAccountJson) {
@@ -68,7 +68,7 @@ function createFirebaseUsers(firebaseConfig) {
       };
     },
     /**
-     * Guarantees a demo clinic-manager can sign in with email + Demo1234!.
+     * Guarantees a demo clinic-manager can sign in with their known password.
      * Upserts Auth user, claims, password, then returns a custom token.
      */
     async ensureDemoManagerLogin(email, password) {
@@ -78,7 +78,8 @@ function createFirebaseUsers(firebaseConfig) {
         error.code = 'DEMO_UNKNOWN';
         throw error;
       }
-      if (String(password || '') !== DEMO_PASSWORD) {
+      const expectedPassword = demoPasswordFor(manager);
+      if (String(password || '') !== expectedPassword) {
         const error = new Error('Email or password is incorrect.');
         error.code = 'DEMO_BAD_PASSWORD';
         throw error;
@@ -89,7 +90,7 @@ function createFirebaseUsers(firebaseConfig) {
         user = await auth.getUserByEmail(manager.email);
         await auth.updateUser(user.uid, {
           displayName: manager.name,
-          password: DEMO_PASSWORD,
+          password: expectedPassword,
           disabled: false,
           emailVerified: true,
         });
@@ -97,7 +98,7 @@ function createFirebaseUsers(firebaseConfig) {
         if (error?.code !== 'auth/user-not-found') throw error;
         user = await auth.createUser({
           email: manager.email,
-          password: DEMO_PASSWORD,
+          password: expectedPassword,
           displayName: manager.name,
           emailVerified: true,
           disabled: false,
