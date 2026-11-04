@@ -125,6 +125,27 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, message: 'Your password has been updated.' });
   });
 
+  /** Demo clinic-manager email/password login (creates/repairs Auth user + returns custom token). */
+  app.post('/api/auth/demo-login', async (req, res) => {
+    if (typeof users.ensureDemoManagerLogin !== 'function') {
+      throw new ApiError(503, 'DEMO_LOGIN_UNAVAILABLE', 'Demo login is not available.');
+    }
+    const email = String(req.body?.email || '').trim();
+    const password = String(req.body?.password || '');
+    if (!email || !password) {
+      throw new ApiError(400, 'INVALID_CREDENTIALS', 'Email and password are required.');
+    }
+    try {
+      const result = await users.ensureDemoManagerLogin(email, password);
+      res.json({ ok: true, ...result });
+    } catch (error) {
+      if (error?.code === 'DEMO_UNKNOWN' || error?.code === 'DEMO_BAD_PASSWORD') {
+        throw new ApiError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect.');
+      }
+      throw error;
+    }
+  });
+
   app.get('/api/me', requireUser, async (req, res) => {
     let profile = null;
     if (typeof users.getUser === 'function') {

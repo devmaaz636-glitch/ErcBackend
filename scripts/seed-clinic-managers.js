@@ -12,49 +12,17 @@ const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const config = require('../src/config');
 const { loadServiceAccount } = require('../src/users');
+const { DEMO_MANAGERS, DEMO_PASSWORD } = require('../src/demoManagers');
 
-const DEFAULT_PASSWORD = process.argv[2] || 'Demo1234!';
+const password = process.argv[2] || DEMO_PASSWORD;
 
-const MANAGERS = [
-  {
-    name: 'Ahmed Al-Faisal',
-    email: 'ahmed.ksa@erc-demo.com',
-    branchId: 'br-riyadh',
-    region: 'KSA',
-  },
-  {
-    name: 'Omar Hassan',
-    email: 'omar.dubai@erc-demo.com',
-    branchId: 'br-dubai',
-    region: 'UAE',
-  },
-  {
-    name: 'Khalid Al-Balushi',
-    email: 'khalid.oman@erc-demo.com',
-    branchId: 'br-muscat',
-    region: 'Oman',
-  },
-  {
-    name: 'James Anderson',
-    email: 'james.usa@erc-demo.com',
-    branchId: 'br-nyc',
-    region: 'USA',
-  },
-  {
-    name: 'Hamza Khan',
-    email: 'hamza.pk@erc-demo.com',
-    branchId: 'br-lahore',
-    region: 'Pakistan',
-  },
-];
-
-async function upsertManager(auth, manager, password) {
+async function upsertManager(auth, manager, nextPassword) {
   let user;
   try {
     user = await auth.getUserByEmail(manager.email);
     await auth.updateUser(user.uid, {
       displayName: manager.name,
-      password,
+      password: nextPassword,
       disabled: false,
       emailVerified: true,
     });
@@ -62,7 +30,7 @@ async function upsertManager(auth, manager, password) {
     if (error?.code !== 'auth/user-not-found') throw error;
     user = await auth.createUser({
       email: manager.email,
-      password,
+      password: nextPassword,
       displayName: manager.name,
       emailVerified: true,
       disabled: false,
@@ -86,15 +54,15 @@ async function main() {
     getApps()[0] || initializeApp({ credential: cert(loadServiceAccount(config.firebase)) });
   const auth = getAuth(app);
 
-  console.log(`Seeding ${MANAGERS.length} clinic managers (password: ${DEFAULT_PASSWORD})`);
-  for (const manager of MANAGERS) {
-    const uid = await upsertManager(auth, manager, DEFAULT_PASSWORD);
+  console.log(`Seeding ${DEMO_MANAGERS.length} clinic managers (password: ${password})`);
+  for (const manager of DEMO_MANAGERS) {
+    const uid = await upsertManager(auth, manager, password);
     console.log(
       `✓ ${manager.name} <${manager.email}> → ${manager.region} (${manager.branchId}) uid=${uid}`
     );
   }
-  console.log('\nDone. Each manager must sign in again to refresh claims.');
-  console.log('They only receive data for their assigned branchId.');
+  console.log('\nDone. Sign in from the app with email + that password.');
+  console.log('Each manager only receives data for their assigned branchId.');
 }
 
 main().catch((error) => {

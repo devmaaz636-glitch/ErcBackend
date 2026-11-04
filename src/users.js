@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
+const { DEMO_PASSWORD, findDemoManager } = require('./demoManagers');
 
 function loadServiceAccount({ serviceAccountPath, serviceAccountJson }) {
   if (serviceAccountJson) {
@@ -64,6 +65,68 @@ function createFirebaseUsers(firebaseConfig) {
         branchId: decoded.branchId || decoded.clinicId || null,
         region: decoded.region || null,
         name: decoded.name || decoded.displayName || '',
+      };
+    },
+    /**
+     * Guarantees a demo clinic-manager can sign in with email + Demo1234!.
+     * Upserts Auth user, claims, password, then returns a custom token.
+     */
+    async ensureDemoManagerLogin(email, password) {
+      const manager = findDemoManager(email);
+      if (!manager) {
+        const error = new Error('Not a demo clinic manager account.');
+        error.code = 'DEMO_UNKNOWN';
+        throw error;
+      }
+      if (String(password || '') !== DEMO_PASSWORD) {
+        const error = new Error('Email or password is incorrect.');
+        error.code = 'DEMO_BAD_PASSWORD';
+        throw error;
+      }
+
+      let user;
+      try {
+        user = await auth.getUserByEmail(manager.email);
+        await auth.updateUser(user.uid, {
+          displayName: manager.name,
+          password: DEMO_PASSWORD,
+          disabled: false,
+          emailVerified: true,
+        });
+      } catch (error) {
+        if (error?.code !== 'auth/user-not-found') throw error;
+        user = await auth.createUser({
+          email: manager.email,
+          password: DEMO_PASSWORD,
+          displayName: manager.name,
+          emailVerified: true,
+          disabled: false,
+        });
+      }
+
+      const existingClaims = user.customClaims || {};
+      await auth.setCustomUserClaims(user.uid, {
+        ...existingClaims,
+        role: 'clinic_manager',
+        branchId: manager.branchId,
+        clinicId: manager.branchId,
+        region: manager.region,
+      });
+
+      const customToken = await auth.createCustomToken(user.uid, {
+        role: 'clinic_manager',
+        branchId: manager.branchId,
+        clinicId: manager.branchId,
+        region: manager.region,
+      });
+
+      return {
+        customToken,
+        email: manager.email,
+        name: manager.name,
+        branchId: manager.branchId,
+        region: manager.region,
+        role: 'clinic_manager',
       };
     },
   };
