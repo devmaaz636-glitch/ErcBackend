@@ -28,6 +28,9 @@ function normalizeRole(value) {
   if (role === 'clinic_manager' || role === 'clinicmanager' || role === 'manager') {
     return 'clinic_manager';
   }
+  if (role === 'doctor' || role === 'clinic_doctor' || role === 'physician') {
+    return 'doctor';
+  }
   return 'unassigned';
 }
 
