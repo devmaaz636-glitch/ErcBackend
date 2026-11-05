@@ -77,138 +77,8 @@ function createClinicStore(options = {}) {
     },
   ];
 
-  const doctors = [
-    {
-      id: 'doc-1',
-      name: 'Dr. Ali Khan',
-      specialty: 'Dermatologist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+971 50 222 1001', email: 'ali.khan@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 48,
-      score: 94,
-      branchId: 'br-dubai',
-    },
-    {
-      id: 'doc-2',
-      name: 'Dr. Sarah Malik',
-      specialty: 'Hair Specialist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+971 50 222 1002', email: 'sarah.malik@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 42,
-      score: 92,
-      branchId: 'br-dubai',
-    },
-    {
-      id: 'doc-3',
-      name: 'Dr. Nora Ahmed',
-      specialty: 'Laser Specialist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+966 55 222 1003', email: 'nora.ahmed@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '10:00 AM', end: '06:00 PM' },
-      consults: 36,
-      score: 88,
-      branchId: 'br-riyadh',
-    },
-    {
-      id: 'doc-3b',
-      name: 'Dr. Layla Hassan',
-      specialty: 'Dermatologist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+966 55 222 1005', email: 'layla.hassan@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 41,
-      score: 91,
-      branchId: 'br-riyadh',
-    },
-    {
-      id: 'doc-3c',
-      name: 'Dr. Yusuf Alharbi',
-      specialty: 'Hair Specialist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+966 55 222 1006', email: 'yusuf.alharbi@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 33,
-      score: 87,
-      branchId: 'br-riyadh',
-    },
-    {
-      id: 'doc-4',
-      name: 'Dr. Hassan Reza',
-      specialty: 'Dentist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+968 92 222 1004', email: 'hassan.reza@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 29,
-      score: 85,
-      branchId: 'br-muscat',
-    },
-    {
-      id: 'doc-nyc-1',
-      name: 'Dr. Emily Carter',
-      specialty: 'Dermatologist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+1 212 555 2201', email: 'emily.carter@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 38,
-      score: 90,
-      branchId: 'br-nyc',
-    },
-    {
-      id: 'doc-nyc-2',
-      name: 'Dr. Michael Brooks',
-      specialty: 'Laser Specialist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+1 212 555 2202', email: 'michael.brooks@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '10:00 AM', end: '06:00 PM' },
-      consults: 31,
-      score: 87,
-      branchId: 'br-nyc',
-    },
-    {
-      id: 'doc-pk-1',
-      name: 'Dr. Ayesha Malik',
-      specialty: 'Dermatologist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+92 300 555 3301', email: 'ayesha.malik@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 34,
-      score: 89,
-      branchId: 'br-lahore',
-    },
-    {
-      id: 'doc-pk-2',
-      name: 'Dr. Bilal Ahmed',
-      specialty: 'Hair Specialist',
-      photo: null,
-      status: 'active',
-      contact: { phone: '+92 300 555 3302', email: 'bilal.ahmed@enfieldroyal.com' },
-      availability: 'Available',
-      schedule: { start: '09:00 AM', end: '05:00 PM' },
-      consults: 28,
-      score: 86,
-      branchId: 'br-lahore',
-    },
-  ];
+  /** Filled after TREATMENT_CATEGORIES — 2 doctors per category per branch. */
+  const doctors = [];
 
   const managers = [
     {
@@ -918,6 +788,134 @@ function createClinicStore(options = {}) {
     'Intimate Surgery',
   ];
 
+  /** Specialty + display names — 2 doctors seeded per category on every branch. */
+  const CATEGORY_DOCTOR_PROFILES = [
+    {
+      category: 'Plastic Surgery',
+      specialty: 'Plastic Surgeon',
+      names: ['Dr. Omar Rashid', 'Dr. Hana Farouk'],
+    },
+    {
+      category: 'Cosmetic Injectables',
+      specialty: 'Injectables Specialist',
+      names: ['Dr. Maya Quinn', 'Dr. Felix Navarro'],
+    },
+    {
+      category: 'Laser Treatments',
+      specialty: 'Laser Specialist',
+      names: ['Dr. Nora Ahmed', 'Dr. Adam Keller'],
+    },
+    {
+      category: 'Skincare',
+      specialty: 'Skincare Specialist',
+      names: ['Dr. Lina Costa', 'Dr. Priya Shah'],
+    },
+    {
+      category: 'Dermatologists',
+      specialty: 'Dermatologist',
+      names: ['Dr. Layla Hassan', 'Dr. Ali Khan'],
+    },
+    {
+      category: 'Hair Transplant',
+      specialty: 'Hair Specialist',
+      names: ['Dr. Yusuf Alharbi', 'Dr. Sarah Malik'],
+    },
+    {
+      category: 'Dental Treatments',
+      specialty: 'Dentist',
+      names: ['Dr. Hassan Reza', 'Dr. Elena Rossi'],
+    },
+    {
+      category: 'Weight Loss',
+      specialty: 'Weight Loss Specialist',
+      names: ['Dr. Samir Nabil', 'Dr. Claire Bennett'],
+    },
+    {
+      category: 'Gynecology',
+      specialty: 'Gynecologist',
+      names: ['Dr. Amira Saleh', 'Dr. Nadine Brooks'],
+    },
+    {
+      category: 'Regenerative',
+      specialty: 'Regenerative Specialist',
+      names: ['Dr. Victor Lang', 'Dr. Iman Qureshi'],
+    },
+    {
+      category: 'Physiotherapist',
+      specialty: 'Physiotherapist',
+      names: ['Dr. Tom Hughes', 'Dr. Sofia Mendes'],
+    },
+    {
+      category: 'Home Healthcare',
+      specialty: 'Home Care Specialist',
+      names: ['Dr. Grace Miller', 'Dr. Ravi Patel'],
+    },
+    {
+      category: 'Intimate Surgery',
+      specialty: 'Intimate Surgery Specialist',
+      names: ['Dr. Camille Dubois', 'Dr. Julian Hart'],
+    },
+  ];
+
+  const BRANCH_CONTACT = {
+    'br-dubai': { phone: '+971 50', emailDomain: 'dubai' },
+    'br-riyadh': { phone: '+966 55', emailDomain: 'riyadh' },
+    'br-muscat': { phone: '+968 92', emailDomain: 'muscat' },
+    'br-nyc': { phone: '+1 212', emailDomain: 'nyc' },
+    'br-lahore': { phone: '+92 300', emailDomain: 'lahore' },
+  };
+
+  function categorySlug(category) {
+    return String(category || 'general')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  function seedTreatmentCategoryDoctors() {
+    doctors.length = 0;
+    let phoneSeq = 2200;
+    branches.forEach((branch) => {
+      const contact = BRANCH_CONTACT[branch.id] || { phone: '+971 50', emailDomain: branch.city || 'clinic' };
+      CATEGORY_DOCTOR_PROFILES.forEach((profile) => {
+        profile.names.forEach((name, index) => {
+          phoneSeq += 1;
+          const slug = categorySlug(profile.category);
+          const emailName = String(name)
+            .replace(/^dr\.?\s+/i, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '.');
+          doctors.push({
+            id: `doc-${branch.id.replace(/^br-/, '')}-${slug}-${index + 1}`,
+            name,
+            specialty: profile.specialty,
+            specialtyCategory: profile.category,
+            photo: null,
+            photoKey: 'treatmentdoctor',
+            imageKey: 'treatmentdoctor',
+            status: 'active',
+            contact: {
+              phone: `${contact.phone} ${String(phoneSeq).slice(-3)} ${String(1000 + index).slice(-4)}`,
+              email: `${emailName}.${contact.emailDomain}@enfieldroyal.com`,
+            },
+            availability: 'Available',
+            schedule: {
+              start: index === 0 ? '09:00 AM' : '10:00 AM',
+              end: index === 0 ? '05:00 PM' : '06:00 PM',
+            },
+            weeklySchedule: null,
+            consults: 24 + index * 7 + (slug.length % 5),
+            score: 86 + index * 3,
+            branchId: branch.id,
+            joinedAt: '2024-03-15',
+          });
+        });
+      });
+    });
+  }
+
+  seedTreatmentCategoryDoctors();
+
   const REGION_CURRENCY = {
     UAE: 'AED',
     KSA: 'SAR',
@@ -1043,14 +1041,92 @@ function createClinicStore(options = {}) {
     return raw.split(/\s+/)[0] || 'Treatment';
   }
 
+  const MAX_TREATMENT_DOCTORS = 8;
+
+  function doctorMatchesCategory(doctor, category) {
+    if (!doctor || !category) return false;
+    const cat = String(category).trim().toLowerCase();
+    if (String(doctor.specialtyCategory || '').trim().toLowerCase() === cat) return true;
+    const needle = cat.replace(/treatments?/g, '').trim();
+    const first = needle.split(/\s+/)[0] || needle;
+    const hay = `${doctor.specialty || ''} ${doctor.specialtyCategory || ''} ${doctor.name || ''}`.toLowerCase();
+    if (first && hay.includes(first)) return true;
+    if (needle.includes('dermatolog') && hay.includes('dermatolog')) return true;
+    if (needle.includes('hair') && hay.includes('hair')) return true;
+    if (needle.includes('dental') && (hay.includes('dental') || hay.includes('dentist'))) return true;
+    if (needle.includes('physio') && hay.includes('physio')) return true;
+    if (needle.includes('inject') && hay.includes('inject')) return true;
+    if (needle.includes('plastic') && hay.includes('plastic')) return true;
+    if (needle.includes('skincare') && hay.includes('skincare')) return true;
+    if (needle.includes('weight') && hay.includes('weight')) return true;
+    if (needle.includes('gynecol') && hay.includes('gynecol')) return true;
+    if (needle.includes('regenerat') && hay.includes('regenerat')) return true;
+    if (needle.includes('home') && hay.includes('home')) return true;
+    if (needle.includes('intimate') && hay.includes('intimate')) return true;
+    if (needle.includes('laser') && hay.includes('laser')) return true;
+    return false;
+  }
+
+  function categoryDoctorIdsForBranch(branchId, category) {
+    return doctors
+      .filter(
+        (doctor) =>
+          doctor.branchId === branchId &&
+          doctor.status !== 'inactive' &&
+          doctorMatchesCategory(doctor, category)
+      )
+      .map((doctor) => doctor.id);
+  }
+
+  function treatmentsProvidedByDoctor(doctor, branchId) {
+    if (!doctor?.id) return [];
+    const isDeleted = (id) => deletedTreatmentKeys.has(treatmentDeleteKey(branchId, id));
+    const rows = [
+      ...customTreatments.filter(
+        (treatment) => treatment.branchId === branchId && !isDeleted(treatment.id)
+      ),
+      ...treatmentCatalog.filter((treatment) => !isDeleted(treatment.id)),
+    ];
+    const byId = [];
+    const bySpecialty = [];
+    for (const treatment of rows) {
+      const summary = {
+        id: treatment.id,
+        name: treatment.name,
+        category: treatment.category || treatment.department || '',
+        department: treatment.department || treatment.category || '',
+        departmentLabel: departmentShortLabel(treatment.department || treatment.category),
+        duration: treatment.duration || null,
+        durationMin: treatment.durationMin || parseDurationMinutes(treatment.duration),
+      };
+      const assigned =
+        Array.isArray(treatment.doctorIds) &&
+        treatment.doctorIds.map(String).includes(String(doctor.id));
+      if (assigned) {
+        byId.push(summary);
+        continue;
+      }
+      if (doctorMatchesCategory(doctor, treatment.category || treatment.department)) {
+        bySpecialty.push(summary);
+      }
+    }
+
+    const picked = byId.length ? byId : bySpecialty;
+    const seen = new Set();
+    return picked.filter((row) => {
+      const key = String(row.id || row.name).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 12);
+  }
+
   function doctorsForTreatment(branchId, category, doctorIds = null) {
     const clinic = branchById(branchId);
     const specialtyFallback = departmentShortLabel(category);
-    const needle = String(category || '')
-      .toLowerCase()
-      .replace(/treatments?/g, '')
-      .trim();
-    const branchDocs = doctors.filter((doctor) => doctor.branchId === branchId);
+    const branchDocs = doctors.filter(
+      (doctor) => doctor.branchId === branchId && doctor.status !== 'inactive'
+    );
     const byId = new Map(doctors.map((doctor) => [doctor.id, doctor]));
     const ordered = [];
     const seen = new Set();
@@ -1060,43 +1136,32 @@ function createClinicStore(options = {}) {
       : [];
     for (const id of preferredIds) {
       const doctor = byId.get(id);
-      if (!doctor || seen.has(doctor.id)) continue;
+      if (!doctor || doctor.status === 'inactive' || seen.has(doctor.id)) continue;
       seen.add(doctor.id);
       ordered.push(doctor);
-      if (ordered.length >= 2) break;
+      if (ordered.length >= MAX_TREATMENT_DOCTORS) break;
     }
 
-    if (ordered.length < 2) {
-      const matched = needle
-        ? branchDocs.filter((doctor) =>
-            String(doctor.specialty || '')
-              .toLowerCase()
-              .includes(needle.split(/\s+/)[0] || needle)
-          )
-        : [];
-      for (const doctor of [...matched, ...branchDocs, ...doctors]) {
+    // Auto-fill with every doctor that matches this treatment category
+    if (!preferredIds.length) {
+      const matched = branchDocs.filter((doctor) => doctorMatchesCategory(doctor, category));
+      for (const doctor of matched) {
         if (seen.has(doctor.id)) continue;
         seen.add(doctor.id);
         ordered.push(doctor);
-        if (ordered.length >= 2) break;
+        if (ordered.length >= MAX_TREATMENT_DOCTORS) break;
       }
     }
 
-    while (ordered.length < 2) {
-      const index = ordered.length + 1;
-      ordered.push({
-        id: `doc-fallback-${index}`,
-        name: index === 1 ? 'Dr. Ahmed Khan' : 'Dr. Sara Ali',
-        specialty: specialtyFallback,
-        consults: 40,
-        score: 90,
-        branchId,
-      });
-    }
-    return ordered.slice(0, 2).map((doctor) => ({
+    return ordered.slice(0, MAX_TREATMENT_DOCTORS).map((doctor) => ({
       ...doctor,
       clinic: clinic?.name || null,
-      specialtyLabel: `${specialtyFallback} Treatment`,
+      branchName: clinic?.name || null,
+      branch: clinic?.name || null,
+      specialtyLabel: doctor.specialty || `${specialtyFallback} Treatment`,
+      photo: doctor.photo || doctor.photoUrl || doctor.imageUri || null,
+      photoKey: doctor.photoKey || doctor.imageKey || null,
+      treatments: treatmentsProvidedByDoctor(doctor, branchId),
     }));
   }
 
@@ -1110,7 +1175,12 @@ function createClinicStore(options = {}) {
     const sessions = treatment.sessions != null
       ? parseSessionCount(treatment.sessions)
       : parseSessionCount(treatment.sessionCount || treatment.session);
-    const doctorIds = Array.isArray(treatment.doctorIds) ? treatment.doctorIds : null;
+    const explicitIds = Array.isArray(treatment.doctorIds)
+      ? treatment.doctorIds.map((id) => String(id)).filter(Boolean)
+      : [];
+    const doctorIds = explicitIds.length
+      ? explicitIds
+      : categoryDoctorIdsForBranch(branchId, category).slice(0, MAX_TREATMENT_DOCTORS);
     const price =
       treatment.price != null
         ? Number(treatment.price)
@@ -1139,7 +1209,7 @@ function createClinicStore(options = {}) {
       imageUri: treatment.imageUri || null,
       createdAt: treatment.createdAt || null,
       custom: Boolean(treatment.custom),
-      doctorIds: doctorIds || [],
+      doctorIds,
       doctors: doctorsForTreatment(branchId, category, doctorIds),
     };
   }
@@ -2336,6 +2406,7 @@ function createClinicStore(options = {}) {
           status: apt.status || 'upcoming',
           patient: apt.patient || 'Patient',
         }));
+      const treatments = treatmentsProvidedByDoctor(doctor, clinic?.id || branchId);
       return {
         ...doctor,
         clinic: clinicInfo,
@@ -2348,6 +2419,9 @@ function createClinicStore(options = {}) {
           ? { start: todayHours.start, end: todayHours.end, working: true }
           : { start: null, end: null, working: false },
         todayAppointments,
+        treatments,
+        treatmentList: treatments,
+        availability: doctor.availability || (todayHours ? 'Available' : 'Unavailable'),
       };
     },
     getDoctor(id) {
@@ -2366,8 +2440,12 @@ function createClinicStore(options = {}) {
       };
     },
     getManagerDoctor(id, branchId) {
-      const doctor = doctors.find((item) => item.id === id && item.branchId === branchId);
-      return this.formatManagerDoctor(doctor, branchId);
+      const doctor =
+        doctors.find((item) => item.id === id && item.branchId === branchId) ||
+        doctors.find((item) => item.id === id);
+      if (!doctor) return null;
+      if (branchId && doctor.branchId && doctor.branchId !== branchId) return null;
+      return this.formatManagerDoctor(doctor, doctor.branchId || branchId);
     },
     createManagerDoctor(branchId, input) {
       const clinic = branchById(branchId);
@@ -2594,7 +2672,7 @@ function createClinicStore(options = {}) {
       }
 
       const doctorIds = Array.isArray(input.doctorIds)
-        ? input.doctorIds.map((id) => String(id)).filter(Boolean).slice(0, 2)
+        ? input.doctorIds.map((id) => String(id)).filter(Boolean).slice(0, MAX_TREATMENT_DOCTORS)
         : Array.isArray(current.doctorIds)
           ? current.doctorIds
           : undefined;
