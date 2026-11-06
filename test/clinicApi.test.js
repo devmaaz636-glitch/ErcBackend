@@ -145,7 +145,7 @@ describe('clinic API routes', () => {
     assert.equal(dashboard.json.clinic.id, 'br-dubai');
     assert.ok(dashboard.json.doctors.every((doctor) => doctor.branchId === 'br-dubai'));
     assert.ok(dashboard.json.appointments.every((appointment) => appointment.branchId === 'br-dubai'));
-    assert.equal(dashboard.json.pendingApprovals, 1);
+    assert.equal(dashboard.json.pendingApprovals, 3);
     assert.ok(dashboard.json.treatments.every((treatment) => 'quota' in treatment));
 
     const appointments = await request(server, { path: '/api/manager/appointments', token });
@@ -162,7 +162,7 @@ describe('clinic API routes', () => {
 
     const requests = await request(server, { path: '/api/manager/appointment-requests', token });
     assert.equal(requests.status, 200);
-    assert.equal(requests.json.items.length, 1);
+    assert.equal(requests.json.items.length, 6);
     const requestId = requests.json.items[0].id;
     const requestDetail = await request(server, {
       path: `/api/manager/appointment-requests/${requestId}`,

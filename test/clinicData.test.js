@@ -30,7 +30,7 @@ describe('clinicData store', () => {
     const { stats, items } = clinic.listManagers();
     assert.ok(stats.total >= 1);
     assert.ok(items.every((m) => m.clinic === null || m.clinic.name));
-    const one = clinic.getManager('mgr-1');
+    const one = clinic.getManager('mgr-dubai');
     assert.equal(one.clinic.id, 'br-dubai');
   });
 });
