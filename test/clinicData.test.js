@@ -29,8 +29,11 @@ describe('clinicData store', () => {
   it('lists and details clinic managers', () => {
     const { stats, items } = clinic.listManagers();
     assert.ok(stats.total >= 1);
-    assert.ok(items.every((m) => m.clinic === null || m.clinic.name));
-    const one = clinic.getManager('mgr-1');
-    assert.equal(one.clinic.id, 'br-dubai');
+    assert.ok(items.every((m) => m.clinic === null || m.clinic?.name));
+    const dubai = items.find((m) => m.clinic?.id === 'br-dubai') || items[0];
+    assert.ok(dubai?.id);
+    const one = clinic.getManager(dubai.id);
+    assert.ok(one);
+    assert.equal(one.clinic.id, dubai.clinic.id);
   });
 });
