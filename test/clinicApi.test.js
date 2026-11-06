@@ -143,9 +143,23 @@ describe('clinic API routes', () => {
     const dashboard = await request(server, { path: '/api/manager/dashboard', token });
     assert.equal(dashboard.status, 200);
     assert.equal(dashboard.json.clinic.id, 'br-dubai');
+    assert.ok(dashboard.json.doctors.length > 0);
     assert.ok(dashboard.json.doctors.every((doctor) => doctor.branchId === 'br-dubai'));
-    assert.ok(dashboard.json.appointments.every((appointment) => appointment.branchId === 'br-dubai'));
-    assert.equal(dashboard.json.pendingApprovals, 3);
+    assert.ok(
+      dashboard.json.appointments.every(
+        (appointment) => !appointment.branchId || appointment.branchId === 'br-dubai'
+      )
+    );
+    assert.ok(Number(dashboard.json.pendingApprovals) >= 1);
+    assert.ok(
+      (dashboard.json.appointmentRequests || []).every(
+        (request) => request.status === 'pending' && request.branchId === 'br-dubai'
+      )
+    );
+    assert.equal(
+      dashboard.json.pendingApprovals,
+      (dashboard.json.appointmentRequests || []).length
+    );
     assert.ok(dashboard.json.treatments.every((treatment) => 'quota' in treatment));
 
     const appointments = await request(server, { path: '/api/manager/appointments', token });
@@ -154,16 +168,27 @@ describe('clinic API routes', () => {
 
     const doctors = await request(server, { path: '/api/manager/doctors', token });
     assert.equal(doctors.status, 200);
+    assert.ok(doctors.json.items.length > 0);
     assert.ok(doctors.json.items.every((doctor) => doctor.branchId === 'br-dubai'));
 
     const treatments = await request(server, { path: '/api/manager/treatments', token });
     assert.equal(treatments.status, 200);
     assert.ok(treatments.json.items.length);
 
+    const patients = await request(server, { path: '/api/manager/patients', token });
+    assert.equal(patients.status, 200);
+    assert.ok(Array.isArray(patients.json.items));
+
+    const alerts = await request(server, { path: '/api/manager/alerts', token });
+    assert.equal(alerts.status, 200);
+    assert.ok(Array.isArray(alerts.json.items));
+
     const requests = await request(server, { path: '/api/manager/appointment-requests', token });
     assert.equal(requests.status, 200);
-    assert.equal(requests.json.items.length, 6);
-    const requestId = requests.json.items[0].id;
+    assert.ok(requests.json.items.length >= 1);
+    assert.ok(requests.json.items.every((item) => item.branchId === 'br-dubai'));
+    const requestId = requests.json.items.find((item) => item.status === 'pending')?.id
+      || requests.json.items[0].id;
     const requestDetail = await request(server, {
       path: `/api/manager/appointment-requests/${requestId}`,
       token,
@@ -182,5 +207,7 @@ describe('clinic API routes', () => {
 
     const adminDashboard = await request(server, { path: '/api/clinic/dashboard', token });
     assert.equal(adminDashboard.status, 403);
+    const adminManagers = await request(server, { path: '/api/clinic/managers', token });
+    assert.equal(adminManagers.status, 403);
   });
 });

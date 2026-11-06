@@ -31,7 +31,8 @@ function normalizeRole(value) {
   if (role === 'doctor' || role === 'clinic_doctor' || role === 'physician') {
     return 'doctor';
   }
-  return 'unassigned';
+  // Keep unknown roles empty so requireRole('admin'|'clinic_manager'|'doctor') stays strict.
+  return '';
 }
 
 // Firebase Auth stays the source of truth for accounts and passwords.
