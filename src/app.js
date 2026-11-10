@@ -3,6 +3,7 @@ const cors = require('cors');
 const { createPasswordReset, ResetError } = require('./passwordReset');
 const { createNotifications } = require('./notifications');
 const { createClinicStore } = require('./clinicData');
+const { DEMO_MANAGERS } = require('./demoManagers');
 
 class ApiError extends Error {
   constructor(status, code, message) {
@@ -413,9 +414,130 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, item });
   });
 
-  app.patch('/api/manager/alerts/:id', requireUser, requireManager, (req, res) => {
+  async function publishScheduleNotify({ uid, title, body, meta = {} }) {
+    if (!uid) return null;
+    try {
+      return await notifications.publishEvent({
+        uid,
+        type: 'bookingUpdates',
+        title,
+        body,
+        meta: { kind: 'doctor_schedule', ...meta },
+        force: true,
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  async function notifyAllClinicManagers({ title, body, meta = {} }) {
+    const results = await Promise.all(
+      DEMO_MANAGERS.map(async (manager) => {
+        try {
+          const account = await users.findByEmail(manager.email);
+          if (!account?.uid) return null;
+          return publishScheduleNotify({
+            uid: account.uid,
+            title,
+            body,
+            meta: { open: 'ManagerAlerts', ...meta },
+          });
+        } catch {
+          return null;
+        }
+      })
+    );
+    return results.filter(Boolean);
+  }
+
+  app.patch('/api/manager/alerts/:id', requireUser, requireManager, async (req, res) => {
     const item = clinic.updateManagerAlert(req.user.branchId, req.params.id, req.body || {});
     if (!item) throw new ApiError(404, 'NOT_FOUND', 'Alert not found.');
+
+    if (item.type === 'doctor_schedule' && item.resolvedAction) {
+      const approved = item.resolvedAction === 'approve';
+      const modeLabel = item.mode === 'leave' ? 'leave request' : 'schedule change';
+      const status = approved ? 'approved' : 'declined';
+      const sharedMeta = {
+        alertId: item.id,
+        scheduleRequestId: item.scheduleRequestId || null,
+        status,
+        mode: item.mode || 'hours',
+      };
+
+      // Live notify doctor + confirming manager (no re-login required).
+      await Promise.all([
+        publishScheduleNotify({
+          uid: item.doctorUid,
+          title: approved ? 'Schedule request approved' : 'Schedule request declined',
+          body: approved
+            ? `Your ${modeLabel} was approved by the clinic manager.`
+            : `Your ${modeLabel} was declined by the clinic manager.`,
+          meta: sharedMeta,
+        }),
+        publishScheduleNotify({
+          uid: req.user.uid,
+          title: approved ? 'You approved a doctor request' : 'You declined a doctor request',
+          body: approved
+            ? `${item.doctorName || 'Doctor'}'s ${modeLabel} is now approved.`
+            : `${item.doctorName || 'Doctor'}'s ${modeLabel} was declined.`,
+          meta: { ...sharedMeta, open: 'ManagerAlerts' },
+        }),
+      ]);
+    }
+
+    res.json({ ok: true, item });
+  });
+
+  app.post('/api/doctor/schedule-requests', requireUser, requireRole('doctor'), async (req, res) => {
+    const body = req.body || {};
+    const created = clinic.createDoctorScheduleRequest({
+      mode: body.mode,
+      doctorUid: req.user.uid,
+      doctorName: body.doctorName || req.user.name || req.user.displayName || 'Doctor',
+      branchId: body.branchId || req.user.branchId || 'br-dubai',
+      preferDay: body.preferDay || null,
+      preferTime: body.preferTime || null,
+      reason: body.reason || '',
+      weeklySchedule: body.weeklySchedule || null,
+    });
+
+    const modeLabel = created.request.mode === 'leave' ? 'leave request' : 'working hours change';
+    const title = created.alert?.title || 'Doctor schedule request';
+    const requestBody =
+      created.alert?.body ||
+      `${created.request.doctorName} submitted a ${modeLabel} for approval.`;
+    const meta = {
+      alertId: created.alert?.id || null,
+      scheduleRequestId: created.request.id,
+      mode: created.request.mode,
+      status: 'pending',
+    };
+
+    // Live notify every clinic manager + the doctor (SSE / in-app feed).
+    await Promise.all([
+      notifyAllClinicManagers({ title, body: requestBody, meta }),
+      publishScheduleNotify({
+        uid: req.user.uid,
+        title: 'Schedule request sent',
+        body: `Your ${modeLabel} was sent to the clinic manager for approval.`,
+        meta,
+      }),
+    ]);
+
+    res.status(201).json({ ok: true, item: created.request, alert: created.alert });
+  });
+
+  app.get('/api/doctor/schedule-requests', requireUser, requireRole('doctor'), (req, res) => {
+    const items = clinic.listDoctorScheduleRequests({ doctorUid: req.user.uid });
+    res.json({ ok: true, items });
+  });
+
+  app.get('/api/doctor/schedule-requests/:id', requireUser, requireRole('doctor'), (req, res) => {
+    const item = clinic.getDoctorScheduleRequest(req.params.id);
+    if (!item || (item.doctorUid && item.doctorUid !== req.user.uid)) {
+      throw new ApiError(404, 'NOT_FOUND', 'Schedule request not found.');
+    }
     res.json({ ok: true, item });
   });
 

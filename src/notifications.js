@@ -235,13 +235,16 @@ function createNotifications({ redis, mailer, resolveUserEmail }) {
       .filter(Boolean);
   }
 
-  async function publishEvent({ uid, type, title, body, meta = {}, email }) {
+  async function publishEvent({ uid, type, title, body, meta = {}, email, force = false }) {
     const prefs = await getPreferences(uid);
-    if (!prefs.alerts[type]) {
+    if (!force && !prefs.alerts[type]) {
       return { delivered: false, reason: 'ALERT_DISABLED' };
     }
 
-    const channels = prefs.channels || {};
+    const channels = { ...(prefs.channels || {}) };
+    // Operational clinic events always get a live in-app delivery (SSE + feed).
+    if (force) channels.inApp = true;
+
     if (!channels.inApp && !channels.push && !channels.email) {
       return { delivered: false, reason: 'CHANNELS_DISABLED' };
     }

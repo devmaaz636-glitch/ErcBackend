@@ -1398,6 +1398,9 @@ function createClinicStore(options = {}) {
     },
   ];
 
+  /** Doctor → manager schedule / leave requests (mutable for approve/decline). */
+  const doctorScheduleRequests = [];
+
   const patientsCatalog = [
     {
       id: 'PT-2848',
@@ -2255,7 +2258,13 @@ function createClinicStore(options = {}) {
     },
     listManagerAlerts(branchId) {
       const branch = branchById(branchId);
-      const items = managerAlertsSeed.map((alert) => this.hydrateManagerAlert(alert, branchId));
+      const items = managerAlertsSeed
+        .filter((alert) => {
+          // Doctor schedule/leave requests must reach every clinic manager in realtime.
+          if (alert.type === 'doctor_schedule') return true;
+          return !alert.targetBranchId || alert.targetBranchId === branchId;
+        })
+        .map((alert) => this.hydrateManagerAlert(alert, branchId));
       const unread = items.filter((item) => item.status === 'unread').length;
       const actionNeeded = items.filter((item) => item.actionNeeded).length;
       return {
@@ -2308,6 +2317,9 @@ function createClinicStore(options = {}) {
         if (alert.requestDetail) {
           alert.requestDetail = { ...alert.requestDetail, status: 'Declined' };
         }
+        if (alert.type === 'doctor_schedule' && alert.scheduleRequestId) {
+          this.resolveDoctorScheduleRequest(alert.scheduleRequestId, 'declined', input);
+        }
       } else if (action === 'approve_reschedule' || action === 'approve') {
         alert.status = 'reviewed';
         alert.actionNeeded = false;
@@ -2319,6 +2331,9 @@ function createClinicStore(options = {}) {
         };
         if (alert.requestDetail) {
           alert.requestDetail = { ...alert.requestDetail, status: 'Approved' };
+        }
+        if (alert.type === 'doctor_schedule' && alert.scheduleRequestId) {
+          this.resolveDoctorScheduleRequest(alert.scheduleRequestId, 'approved', input);
         }
       } else if (action === 'review') {
         alert.status = 'reviewed';
@@ -2725,6 +2740,90 @@ function createClinicStore(options = {}) {
     },
     getManager(id) {
       return enrichManager(managers.find((m) => m.id === id || m.employeeId === id));
+    },
+    createDoctorScheduleRequest(input = {}) {
+      const now = new Date();
+      const clock = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const id = `dsr-${Date.now()}`;
+      const alertId = `malert-dsr-${Date.now()}`;
+      const mode = String(input.mode || 'hours').toLowerCase() === 'leave' ? 'leave' : 'hours';
+      const branchId = input.branchId || 'br-dubai';
+      const doctorName = String(input.doctorName || 'Doctor').trim() || 'Doctor';
+      const preferDay = input.preferDay || null;
+      const preferTime = input.preferTime || null;
+      const reason = String(input.reason || '').trim();
+      const title = mode === 'leave' ? 'Doctor Leave Request' : 'Doctor Schedule Change';
+      const body =
+        mode === 'leave'
+          ? `${doctorName} requested leave${preferDay ? ` for ${preferDay}` : ''}${
+              preferTime ? ` at ${preferTime}` : ''
+            }.`
+          : `${doctorName} requested updated working hours${preferDay ? ` (prefer ${preferDay}` : ''}${
+              preferTime ? ` · ${preferTime})` : preferDay ? ')' : ''
+            }.`;
+
+      const request = {
+        id,
+        alertId,
+        mode,
+        status: 'pending',
+        doctorUid: input.doctorUid || null,
+        doctorName,
+        branchId,
+        preferDay,
+        preferTime,
+        reason,
+        weeklySchedule: input.weeklySchedule || null,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        decidedAt: null,
+        decisionNote: null,
+      };
+      doctorScheduleRequests.unshift(request);
+
+      managerAlertsSeed.unshift({
+        id: alertId,
+        title,
+        clock,
+        time: 'Today',
+        body,
+        detail: reason || 'Review and approve or decline this doctor request.',
+        type: 'doctor_schedule',
+        status: 'unread',
+        actionNeeded: true,
+        primaryAction: null,
+        resolvedAction: null,
+        targetBranchId: branchId,
+        scheduleRequestId: id,
+        doctorUid: request.doctorUid,
+        doctorName,
+        preferDay,
+        preferTime,
+        reason,
+        mode,
+      });
+
+      return { request, alert: this.hydrateManagerAlert(managerAlertsSeed[0], branchId) };
+    },
+    listDoctorScheduleRequests({ doctorUid, branchId } = {}) {
+      return doctorScheduleRequests.filter((item) => {
+        if (doctorUid && item.doctorUid && item.doctorUid !== doctorUid) return false;
+        if (branchId && item.branchId && item.branchId !== branchId) return false;
+        return true;
+      });
+    },
+    getDoctorScheduleRequest(id) {
+      return doctorScheduleRequests.find((item) => item.id === id) || null;
+    },
+    resolveDoctorScheduleRequest(id, status, input = {}) {
+      const request = doctorScheduleRequests.find((item) => item.id === id);
+      if (!request) return null;
+      const nextStatus = status === 'approved' ? 'approved' : 'declined';
+      request.status = nextStatus;
+      request.updatedAt = new Date().toISOString();
+      request.decidedAt = request.updatedAt;
+      request.decisionNote = input.reason || input.note || null;
+      return request;
     },
   };
 }

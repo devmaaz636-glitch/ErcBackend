@@ -61,14 +61,30 @@ function createFirebaseUsers(firebaseConfig) {
     },
     async verifyIdToken(idToken) {
       const decoded = await auth.verifyIdToken(idToken);
+      const email = String(decoded.email || '').trim().toLowerCase();
+      let role = normalizeRole(decoded.role || decoded['https://enfieldroyalclinic.com/role']);
+      let branchId = decoded.branchId || decoded.clinicId || null;
+      let region = decoded.region || null;
+      let name = decoded.name || decoded.displayName || '';
+
+      // Demo doctor account: allow schedule APIs even before custom claims are set.
+      if (!role && email === 'ercdoctor@gmail.com') {
+        role = 'doctor';
+      }
+      if (role === 'doctor' && !branchId) {
+        branchId = 'br-dubai';
+        region = region || 'UAE';
+        name = name || 'Dr Zeeshan Forward';
+      }
+
       return {
         uid: decoded.uid,
         email: decoded.email || '',
-        role: normalizeRole(decoded.role || decoded['https://enfieldroyalclinic.com/role']),
-        clinicId: decoded.clinicId || decoded.branchId || null,
-        branchId: decoded.branchId || decoded.clinicId || null,
-        region: decoded.region || null,
-        name: decoded.name || decoded.displayName || '',
+        role,
+        clinicId: decoded.clinicId || decoded.branchId || branchId,
+        branchId,
+        region,
+        name,
       };
     },
     /**
