@@ -126,6 +126,38 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, message: 'Your password has been updated.' });
   });
 
+  /** Patient-only public signup. Never creates admin / manager / doctor accounts. */
+  app.post('/api/auth/patient/signup', async (req, res) => {
+    if (typeof users.createPatientAccount !== 'function') {
+      throw new ApiError(503, 'SIGNUP_UNAVAILABLE', 'Patient signup is not available.');
+    }
+    const email = String(req.body?.email || '').trim();
+    const password = String(req.body?.password || '');
+    const fullName = String(req.body?.fullName || req.body?.name || '').trim();
+    const confirmPassword = String(req.body?.confirmPassword || password);
+    if (!email || !password || !fullName) {
+      throw new ApiError(400, 'INVALID_SIGNUP', 'Full name, email, and password are required.');
+    }
+    if (password !== confirmPassword) {
+      throw new ApiError(400, 'PASSWORD_MISMATCH', 'Passwords do not match.');
+    }
+    try {
+      const result = await users.createPatientAccount({ email, password, fullName });
+      res.status(201).json({ ok: true, ...result });
+    } catch (error) {
+      if (error?.code === 'INVALID_EMAIL' || error?.code === 'INVALID_NAME' || error?.code === 'WEAK_PASSWORD') {
+        throw new ApiError(400, error.code, error.message);
+      }
+      if (error?.code === 'EMAIL_EXISTS' || error?.code === 'EMAIL_STAFF') {
+        throw new ApiError(409, error.code, error.message);
+      }
+      if (error?.code === 'auth/email-already-exists') {
+        throw new ApiError(409, 'EMAIL_EXISTS', 'An account with this email already exists. Sign in instead.');
+      }
+      throw error;
+    }
+  });
+
   /** Demo clinic-manager email/password login (creates/repairs Auth user + returns custom token). */
   app.post('/api/auth/demo-login', async (req, res) => {
     if (typeof users.ensureDemoManagerLogin !== 'function') {

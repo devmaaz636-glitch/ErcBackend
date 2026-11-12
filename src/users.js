@@ -31,7 +31,10 @@ function normalizeRole(value) {
   if (role === 'doctor' || role === 'clinic_doctor' || role === 'physician') {
     return 'doctor';
   }
-  // Keep unknown roles empty so requireRole('admin'|'clinic_manager'|'doctor') stays strict.
+  if (role === 'patient' || role === 'clinic_patient') {
+    return 'patient';
+  }
+  // Keep unknown roles empty so requireRole(...) stays strict for staff routes.
   return '';
 }
 
@@ -85,6 +88,72 @@ function createFirebaseUsers(firebaseConfig) {
         branchId,
         region,
         name,
+      };
+    },
+    /**
+     * Public patient self-registration only.
+     * Staff (admin / clinic_manager / doctor) cannot be created through this path.
+     */
+    async createPatientAccount({ email, password, fullName }) {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const nextPassword = String(password || '');
+      const name = String(fullName || '').trim();
+
+      if (!normalizedEmail || !normalizedEmail.includes('@')) {
+        const error = new Error('Enter a valid email address.');
+        error.code = 'INVALID_EMAIL';
+        throw error;
+      }
+      if (name.length < 2) {
+        const error = new Error('Enter your full name.');
+        error.code = 'INVALID_NAME';
+        throw error;
+      }
+      if (nextPassword.length < 8 || !/[A-Za-z]/.test(nextPassword) || !/\d/.test(nextPassword)) {
+        const error = new Error('Use at least 8 characters with a letter and a number.');
+        error.code = 'WEAK_PASSWORD';
+        throw error;
+      }
+
+      try {
+        const existing = await auth.getUserByEmail(normalizedEmail);
+        const existingRole = normalizeRole(existing.customClaims?.role);
+        if (existingRole && existingRole !== 'patient') {
+          const error = new Error(
+            'This email is already registered for staff access. Sign in instead.'
+          );
+          error.code = 'EMAIL_STAFF';
+          throw error;
+        }
+        const error = new Error('An account with this email already exists. Sign in instead.');
+        error.code = 'EMAIL_EXISTS';
+        throw error;
+      } catch (error) {
+        if (error?.code && error.code !== 'auth/user-not-found') throw error;
+      }
+
+      const user = await auth.createUser({
+        email: normalizedEmail,
+        password: nextPassword,
+        displayName: name,
+        emailVerified: false,
+        disabled: false,
+      });
+
+      await auth.setCustomUserClaims(user.uid, {
+        role: 'patient',
+      });
+
+      const customToken = await auth.createCustomToken(user.uid, {
+        role: 'patient',
+      });
+
+      return {
+        customToken,
+        uid: user.uid,
+        email: normalizedEmail,
+        name,
+        role: 'patient',
       };
     },
     /**
