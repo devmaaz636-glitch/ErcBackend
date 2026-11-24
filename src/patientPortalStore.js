@@ -69,9 +69,53 @@ const DOCTORS = [
 
 const SLOTS = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '02:00 PM', '03:00 PM', '04:00 PM'];
 
+const CATEGORIES = [
+  { id: 'laser', label: 'Laser\nTreatments', section: 'Laser Treatments' },
+  { id: 'hair', label: 'Hair Prp', section: 'Hair PRP' },
+  { id: 'fillers', label: 'Dermal\nFillers', section: 'Dermal Fillers' },
+  { id: 'facelift', label: 'Facelift', section: 'Facelift' },
+];
+
+const BANNERS = [
+  {
+    id: 'promo-1',
+    eyebrow: 'Exclusive Beauty Deals',
+    title: 'Save Up To 40%',
+    body: 'Discover exclusive offers and experience the beauty you deserve.',
+    cta: 'Book Now',
+    imageKey: 'patientcard',
+  },
+  {
+    id: 'promo-2',
+    eyebrow: 'New Season Offers',
+    title: 'Glow With Confidence',
+    body: 'Book premium skincare treatments with specialists at your clinic.',
+    cta: 'Book Now',
+    imageKey: 'patientcard',
+  },
+  {
+    id: 'promo-3',
+    eyebrow: 'Member Privileges',
+    title: 'Priority Booking',
+    body: 'Reserve preferred slots faster and manage follow-ups in one place.',
+    cta: 'Book Now',
+    imageKey: 'patientcard',
+  },
+];
+
 function isoDate(value) {
   const next = String(value || '').trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(next) ? next : '';
+}
+
+function todayKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function isPastDate(value) {
+  const date = isoDate(value);
+  return Boolean(date && date < todayKey());
 }
 
 function toDateLabel(value) {
@@ -109,7 +153,7 @@ function createPatientPortalStore() {
 
   function availableSlots(doctorId, date) {
     const doctor = DOCTORS.find((item) => item.id === doctorId);
-    if (!doctor || !isoDate(date)) return [];
+    if (!doctor || !isoDate(date) || isPastDate(date)) return [];
     const weekday = new Date(`${date}T00:00:00`).getDay();
     if (!doctor.workingDays.includes(weekday)) return [];
     const reserved = [...appointmentsByPatient.values()]
@@ -119,9 +163,37 @@ function createPatientPortalStore() {
     return SLOTS.filter((slot) => !reserved.includes(slot));
   }
 
+  function popularTreatments() {
+    const counts = new Map();
+    for (const list of appointmentsByPatient.values()) {
+      for (const apt of list) {
+        if (!apt?.treatmentId || apt.status === 'canceled') continue;
+        counts.set(apt.treatmentId, (counts.get(apt.treatmentId) || 0) + 1);
+      }
+    }
+    const ranked = CATALOG
+      .map((item) => ({
+        ...item,
+        bookingCount: counts.get(item.id) || 0,
+      }))
+      .sort((a, b) => {
+        if (b.bookingCount !== a.bookingCount) return b.bookingCount - a.bookingCount;
+        return String(a.name).localeCompare(String(b.name));
+      });
+    // Prefer treatments patients actually book; if none yet, keep catalog order.
+    const booked = ranked.filter((item) => item.bookingCount > 0);
+    return booked.length ? booked : ranked;
+  }
+
   return {
     catalog() {
-      return { treatments: CATALOG, doctors: DOCTORS };
+      return {
+        treatments: CATALOG,
+        doctors: DOCTORS,
+        categories: CATEGORIES,
+        banners: BANNERS,
+        popular: popularTreatments(),
+      };
     },
     availability(doctorId, date) {
       return { slots: availableSlots(doctorId, date) };
@@ -139,6 +211,11 @@ function createPatientPortalStore() {
       const time = String(input.time || '').trim();
       if (!treatment || !doctor || !date || !time || doctor.department !== treatment.department) {
         const error = new Error('Choose a treatment, eligible doctor, date and available time.');
+        error.code = 'INVALID_BOOKING';
+        throw error;
+      }
+      if (isPastDate(date)) {
+        const error = new Error('Please choose today or a future date.');
         error.code = 'INVALID_BOOKING';
         throw error;
       }
@@ -200,6 +277,11 @@ function createPatientPortalStore() {
       } else if (action === 'reschedule') {
         const date = isoDate(input.date);
         const time = String(input.time || '').trim();
+        if (isPastDate(date)) {
+          const error = new Error('Please choose today or a future date.');
+          error.code = 'SLOT_UNAVAILABLE';
+          throw error;
+        }
         if (!date || !time || !availableSlots(item.doctorId, date).includes(time)) {
           const error = new Error('Choose an available date and time.');
           error.code = 'SLOT_UNAVAILABLE';
