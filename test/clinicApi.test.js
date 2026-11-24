@@ -72,6 +72,9 @@ describe('clinic API routes', () => {
               clinicId: 'br-dubai',
             };
           }
+          if (token === 'patient-token') {
+            return { uid: 'patient-u1', email: 'patient@test.com', name: 'Test Patient', role: 'patient' };
+          }
           throw new Error('bad token');
         },
       },
@@ -209,5 +212,39 @@ describe('clinic API routes', () => {
     assert.equal(adminDashboard.status, 403);
     const adminManagers = await request(server, { path: '/api/clinic/managers', token });
     assert.equal(adminManagers.status, 403);
+  });
+
+  it('persists a patient booking and scopes appointment actions to that patient', async () => {
+    const token = 'patient-token';
+    const catalog = await request(server, { path: '/api/patient/catalog', token });
+    assert.equal(catalog.status, 200);
+    assert.ok(catalog.json.treatments.length > 0);
+
+    const treatment = catalog.json.treatments.find((item) => item.department === 'Laser');
+    const doctor = catalog.json.doctors.find((item) => item.department === treatment.department);
+    const availability = await request(server, {
+      path: `/api/patient/availability?doctorId=${doctor.id}&date=2027-01-04`,
+      token,
+    });
+    assert.equal(availability.status, 200);
+    assert.ok(availability.json.slots.length > 0);
+
+    const created = await request(server, {
+      method: 'POST', path: '/api/patient/appointments', token,
+      body: { treatmentId: treatment.id, doctorId: doctor.id, date: '2027-01-04', time: availability.json.slots[0] },
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.json.item.patientUid, 'patient-u1');
+
+    const appointments = await request(server, { path: '/api/patient/appointments', token });
+    assert.equal(appointments.status, 200);
+    assert.equal(appointments.json.items.length, 1);
+
+    const cancelled = await request(server, {
+      method: 'PATCH', path: `/api/patient/appointments/${created.json.item.id}`, token,
+      body: { action: 'cancel', reason: 'Unable to attend' },
+    });
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.json.item.status, 'canceled');
   });
 });

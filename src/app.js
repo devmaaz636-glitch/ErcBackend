@@ -3,6 +3,7 @@ const cors = require('cors');
 const { createPasswordReset, ResetError } = require('./passwordReset');
 const { createNotifications } = require('./notifications');
 const { createClinicStore } = require('./clinicData');
+const { createPatientPortalStore } = require('./patientPortalStore');
 const { DEMO_MANAGERS } = require('./demoManagers');
 
 class ApiError extends Error {
@@ -57,6 +58,7 @@ function createApp({ redis, mailer, users, config }) {
     },
   });
   const clinic = createClinicStore();
+  const patientPortal = createPatientPortalStore();
 
   const clientIp = (req) => req.ip || req.socket.remoteAddress || 'unknown';
 
@@ -232,6 +234,70 @@ function createApp({ redis, mailer, users, config }) {
   app.get('/api/notifications/feed', requireUser, async (req, res) => {
     const items = await notifications.listFeed(req.user.uid);
     res.json({ ok: true, items });
+  });
+
+  // Patient portal. Patient identity always comes from the verified token;
+  // callers cannot read or change another patient's appointments/documents.
+  app.get('/api/patient/catalog', requireUser, requireRole('patient'), (_req, res) => {
+    res.json({ ok: true, ...patientPortal.catalog() });
+  });
+
+  app.get('/api/patient/availability', requireUser, requireRole('patient'), (req, res) => {
+    const doctorId = String(req.query?.doctorId || '').trim();
+    const date = String(req.query?.date || '').trim();
+    res.json({ ok: true, ...patientPortal.availability(doctorId, date) });
+  });
+
+  app.get('/api/patient/appointments', requireUser, requireRole('patient'), (req, res) => {
+    res.json({ ok: true, items: patientPortal.listAppointments(req.user.uid) });
+  });
+
+  app.post('/api/patient/appointments', requireUser, requireRole('patient'), async (req, res) => {
+    try {
+      const item = patientPortal.createAppointment(req.user.uid, req.user, req.body || {});
+      await notifications.publishEvent({
+        uid: req.user.uid,
+        type: 'bookingUpdates',
+        title: 'Appointment request received',
+        body: `${item.treatment} on ${item.dateLabel} at ${item.time} is awaiting clinic confirmation.`,
+        meta: { appointmentId: item.id, open: 'PatientAppointmentDetail' },
+        force: true,
+      }).catch(() => {});
+      res.status(201).json({ ok: true, item });
+    } catch (error) {
+      if (error?.code === 'INVALID_BOOKING' || error?.code === 'SLOT_UNAVAILABLE') {
+        throw new ApiError(400, error.code, error.message);
+      }
+      throw error;
+    }
+  });
+
+  app.patch('/api/patient/appointments/:id', requireUser, requireRole('patient'), async (req, res) => {
+    try {
+      const item = patientPortal.updateAppointment(req.user.uid, req.params.id, req.body || {});
+      if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
+      await notifications.publishEvent({
+        uid: req.user.uid,
+        type: 'bookingUpdates',
+        title: item.status === 'canceled' ? 'Appointment cancelled' : 'Reschedule request received',
+        body: item.status === 'canceled'
+          ? `${item.treatment} was cancelled.`
+          : `${item.treatment} is now requested for ${item.dateLabel} at ${item.time}.`,
+        meta: { appointmentId: item.id, open: 'PatientAppointmentDetail' },
+        force: true,
+      }).catch(() => {});
+      res.json({ ok: true, item });
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (error?.code === 'INVALID_STATUS' || error?.code === 'SLOT_UNAVAILABLE' || error?.code === 'INVALID_ACTION') {
+        throw new ApiError(400, error.code, error.message);
+      }
+      throw error;
+    }
+  });
+
+  app.get('/api/patient/documents', requireUser, requireRole('patient'), (req, res) => {
+    res.json({ ok: true, items: patientPortal.listDocuments(req.user.uid) });
   });
 
   app.post('/api/notifications/read', requireUser, async (req, res) => {
