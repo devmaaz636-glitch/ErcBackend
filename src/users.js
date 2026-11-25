@@ -91,6 +91,24 @@ function createFirebaseUsers(firebaseConfig) {
       };
     },
     /**
+     * Called after a first-time Google sign-in. Accounts that already have a
+     * role (staff or patient) keep it untouched; a brand-new account becomes a
+     * patient. Staff addresses can never become patients this way.
+     */
+    async ensurePatientRole(uid) {
+      const record = await auth.getUser(uid);
+      const existing = normalizeRole(record.customClaims?.role);
+      if (existing) return { role: existing, created: false };
+      const email = String(record.email || '').trim().toLowerCase();
+      if (email === 'ercdoctor@gmail.com' || findDemoManager(email)) {
+        const error = new Error('This email is registered for staff access.');
+        error.code = 'EMAIL_STAFF';
+        throw error;
+      }
+      await auth.setCustomUserClaims(uid, { ...(record.customClaims || {}), role: 'patient' });
+      return { role: 'patient', created: true };
+    },
+    /**
      * Public patient self-registration only.
      * Staff (admin / clinic_manager / doctor) cannot be created through this path.
      */

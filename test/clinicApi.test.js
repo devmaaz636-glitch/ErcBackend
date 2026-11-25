@@ -4,11 +4,15 @@ const http = require('node:http');
 const { createApp } = require('../src/app');
 
 function mockRedis() {
+  const values = new Map();
   return {
     ping: async () => 'PONG',
-    get: async () => null,
-    set: async () => 'OK',
-    del: async () => 1,
+    get: async (key) => values.get(key) || null,
+    set: async (key, value) => {
+      values.set(key, String(value));
+      return 'OK';
+    },
+    del: async (key) => (values.delete(key) ? 1 : 0),
     incr: async () => 1,
     expire: async () => 1,
     quit: async () => 'OK',
@@ -246,5 +250,47 @@ describe('clinic API routes', () => {
     });
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.json.item.status, 'canceled');
+  });
+
+  it('saves and returns only the authenticated patient profile', async () => {
+    const token = 'patient-token';
+    const saved = await request(server, {
+      method: 'PUT',
+      path: '/api/patient/profile',
+      token,
+      body: {
+        name: 'Test Patient',
+        region: 'UAE',
+        gender: 'Female',
+        phone: '+971500000000',
+      },
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.json.profile.region, 'UAE');
+    assert.equal(saved.json.profile.gender, 'Female');
+
+    const profile = await request(server, { path: '/api/patient/profile', token });
+    assert.equal(profile.status, 200);
+    assert.equal(profile.json.profile.phone, '+971500000000');
+
+    const me = await request(server, { path: '/api/me', token });
+    assert.equal(me.status, 200);
+    assert.equal(me.json.user.region, 'UAE');
+    assert.equal(me.json.user.gender, 'Female');
+
+    const invalid = await request(server, {
+      method: 'PUT',
+      path: '/api/patient/profile',
+      token,
+      body: { region: 'Mars', gender: 'Female' },
+    });
+    assert.equal(invalid.status, 400);
+
+    const unauthenticated = await request(server, {
+      method: 'PUT',
+      path: '/api/patient/profile',
+      body: { region: 'UAE', gender: 'Female' },
+    });
+    assert.equal(unauthenticated.status, 401);
   });
 });

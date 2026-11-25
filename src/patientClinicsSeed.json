@@ -1,0 +1,209 @@
+[
+  {
+    "id": "clinic-dubai",
+    "branchId": "br-dubai",
+    "region": "UAE",
+    "name": "Enfield Royal Clinic Dubai, UAE",
+    "city": "Dubai",
+    "phone": "+971 4373 9000",
+    "email": "info@royalclinicdubai.com",
+    "address": "Villa 1089, Al Wasl Road, Al Manara Area, Dubai UAE",
+    "shortAddress": "Villa 1089, Al Wasl Road, Al Manara Area",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 25.2116,
+    "lng": 55.2534,
+    "aliases": [
+      "dubai",
+      "al manara",
+      "al wasl",
+      "br-dubai"
+    ]
+  },
+  {
+    "id": "clinic-abu-dhabi-khalifa",
+    "branchId": "br-abu-dhabi",
+    "region": "UAE",
+    "name": "Enfield Royal Clinic Abu Dhabi, UAE",
+    "city": "Abu Dhabi",
+    "phone": "+971 25568001",
+    "email": "info@enfieldabudhabi.ae",
+    "address": "142 Al ishoush Street - Khalifa City - Abu Dhabi",
+    "shortAddress": "142 Al ishoush Street, Khalifa City",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 24.4192,
+    "lng": 54.578,
+    "aliases": [
+      "khalifa",
+      "ishoush",
+      "abu dhabi",
+      "abudhabi",
+      "br-abu-dhabi"
+    ]
+  },
+  {
+    "id": "clinic-abu-dhabi-shakhbout",
+    "branchId": "br-shakhbout",
+    "region": "UAE",
+    "name": "Enfield Royal Clinic Abu Dhabi | Shakhbout City",
+    "city": "Abu Dhabi",
+    "phone": "+971 025 014200",
+    "email": "info@enfieldroyalclinicad.ae",
+    "address": "Villa 3 - Block 9 Al ʹAlya-a St - Shakhbout City - Abu Dhabi",
+    "shortAddress": "Villa 3, Block 9 Al ʹAlya-a St, Shakhbout City",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 24.358,
+    "lng": 54.625,
+    "aliases": [
+      "shakhbout",
+      "alya",
+      "br-shakhbout"
+    ]
+  },
+  {
+    "id": "clinic-riyadh",
+    "branchId": "br-riyadh",
+    "region": "KSA",
+    "name": "Enfield Royal Clinic Riyadh, KSA",
+    "city": "Riyadh",
+    "phone": "+966 58 262 2856",
+    "email": "info@enfieldroyalsaudia.com",
+    "address": "QQ85+M2M, Al Hamra, Riyadh 13214, Saudi Arabia",
+    "shortAddress": "QQ85+M2M, Al Hamra, Riyadh 13214",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 24.7743,
+    "lng": 46.7386,
+    "aliases": [
+      "riyadh",
+      "al hamra",
+      "ksa",
+      "saudi",
+      "br-riyadh"
+    ]
+  },
+  {
+    "id": "clinic-muscat",
+    "branchId": "br-muscat",
+    "region": "Oman",
+    "name": "Enfield Royal Clinic Muscat, Oman",
+    "city": "Muscat",
+    "phone": "+968 9272 6406",
+    "email": "info@enfieldroyalclinics.om",
+    "address": "Al Sarooj, 3013 Way, Al Kharjiyah St, Muscat, Oman",
+    "shortAddress": "Al Sarooj, 3013 Way, Al Kharjiyah St",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 23.615,
+    "lng": 58.45,
+    "aliases": [
+      "muscat",
+      "sarooj",
+      "kharjiyah",
+      "oman",
+      "br-muscat"
+    ]
+  },
+  {
+    "id": "clinic-islamabad",
+    "branchId": "br-lahore",
+    "region": "Pakistan",
+    "name": "Enfield Royal Clinic Islamabad, Pakistan",
+    "city": "Islamabad",
+    "phone": "+92 332 5488777",
+    "email": "info@enfieldroyalclinics.com.pk",
+    "address": "3rd Floor, Ammar Center, Block # 13-A College road F-7 Markaz Islamabad, Pakistan",
+    "shortAddress": "Ammar Center, Block 13-A, F-7 Markaz",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 33.7295,
+    "lng": 73.057,
+    "aliases": [
+      "islamabad",
+      "f-7",
+      "ammar",
+      "f7",
+      "pakistan",
+      "br-islamabad",
+      "br-lahore",
+      "lahore"
+    ]
+  },
+  {
+    "id": "clinic-viera-fl",
+    "branchId": "br-viera",
+    "region": "USA",
+    "name": "Enfield Royal Clinics | Med Spa of Viera, FL",
+    "city": "Rockledge",
+    "phone": "+1 908-836-7788",
+    "email": "info@enfieldroyalclinic.com",
+    "address": "5460 Village Drive, Rockledge, Florida 32955, United States",
+    "shortAddress": "5460 Village Drive, Rockledge, FL 32955",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 28.265,
+    "lng": -80.725,
+    "aliases": [
+      "viera",
+      "rockledge",
+      "florida",
+      "fl",
+      "br-viera",
+      "br-nyc"
+    ]
+  },
+  {
+    "id": "clinic-tomball-tx",
+    "branchId": "br-tomball",
+    "region": "USA",
+    "name": "Enfield Royal Houston – Med Spa of Tomball, TX",
+    "city": "Tomball",
+    "phone": "(281) 956-8950",
+    "email": "info@enfieldroyalclinic.com",
+    "address": "11606 Westlock Dr, 105A Tomball, TX, 77377",
+    "shortAddress": "11606 Westlock Dr, 105A, Tomball, TX",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 30.097,
+    "lng": -95.616,
+    "aliases": [
+      "tomball",
+      "houston",
+      "texas",
+      "tx",
+      "westlock",
+      "br-tomball"
+    ]
+  },
+  {
+    "id": "clinic-branchburg-nj",
+    "branchId": "br-branchburg",
+    "region": "USA",
+    "name": "Enfield Royal Clinics - Med Spa Of Branchburg, NJ",
+    "city": "Branchburg",
+    "phone": "+1 908-895-8008",
+    "email": "info@enfieldroyalclinic.com",
+    "address": "1018 US-202, Branchburg, NJ 08876",
+    "shortAddress": "1018 US-202, Branchburg, NJ",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 40.565,
+    "lng": -74.685,
+    "aliases": [
+      "branchburg",
+      "br-branchburg"
+    ]
+  },
+  {
+    "id": "clinic-princeton-nj",
+    "branchId": "br-princeton",
+    "region": "USA",
+    "name": "Enfield Royal Clinic – Med Spa Of Princeton, NJ",
+    "city": "Princeton Junction",
+    "phone": "+1 908-895-8008",
+    "email": "info@enfieldroyalclinic.com",
+    "address": "43 Princeton Hightstown Rd #1103, Princeton Junction, NJ 08550",
+    "shortAddress": "43 Princeton Hightstown Rd #1103",
+    "tagline": "Discover exclusive offers and experience the beauty you deserve.",
+    "lat": 40.304,
+    "lng": -74.62,
+    "aliases": [
+      "princeton",
+      "hightstown",
+      "br-princeton"
+    ]
+  }
+]

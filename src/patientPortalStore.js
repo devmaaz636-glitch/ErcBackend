@@ -1,12 +1,19 @@
 /**
  * Patient portal domain store.
  *
- * The HTTP contract is intentionally independent from the manager dashboard
- * store so it can be moved to Firestore/Postgres without changing the app.
- * This development implementation keeps data for the lifetime of the server.
+ * Working data is held in memory for fast, synchronous reads and written
+ * through to Redis after every change, so appointments and document metadata
+ * survive server restarts. The HTTP contract is independent of this storage so
+ * it can later move to Firestore/Postgres without touching the app.
+ *
+ * The catalog (treatments, doctors, clinics, regions, banners) is seed data
+ * today; it is exposed through `catalog()` so an admin editor can replace it
+ * later without changing any patient screen.
  */
 
-const CATALOG = [
+const CLINICS = require('./patientClinicsSeed.json');
+
+const TREATMENTS = [
   {
     id: 'laser-hair-removal',
     category: 'laser',
@@ -16,6 +23,7 @@ const CATALOG = [
     durationMin: 30,
     price: 600,
     sessions: 6,
+    featured: true,
   },
   {
     id: 'laser-rejuvenation',
@@ -76,6 +84,7 @@ const CATEGORIES = [
   { id: 'facelift', label: 'Facelift', section: 'Facelift' },
 ];
 
+// `treatmentId` makes the banner's call to action open that treatment.
 const BANNERS = [
   {
     id: 'promo-1',
@@ -84,6 +93,7 @@ const BANNERS = [
     body: 'Discover exclusive offers and experience the beauty you deserve.',
     cta: 'Book Now',
     imageKey: 'patientcard',
+    treatmentId: 'laser-hair-removal',
   },
   {
     id: 'promo-2',
@@ -92,6 +102,7 @@ const BANNERS = [
     body: 'Book premium skincare treatments with specialists at your clinic.',
     cta: 'Book Now',
     imageKey: 'patientcard',
+    treatmentId: 'laser-rejuvenation',
   },
   {
     id: 'promo-3',
@@ -100,8 +111,21 @@ const BANNERS = [
     body: 'Reserve preferred slots faster and manage follow-ups in one place.',
     cta: 'Book Now',
     imageKey: 'patientcard',
+    treatmentId: null,
   },
 ];
+
+// Regional pricing: price shown = base price x factor, in the region currency.
+const REGIONS = [
+  { key: 'UAE', currency: 'AED', factor: 1, flag: '🇦🇪' },
+  { key: 'KSA', currency: 'SAR', factor: 1.05, flag: '🇸🇦' },
+  { key: 'Oman', currency: 'OMR', factor: 0.1, flag: '🇴🇲' },
+  { key: 'Pakistan', currency: 'PKR', factor: 75, flag: '🇵🇰' },
+  { key: 'USA', currency: 'USD', factor: 0.27, flag: '🇺🇸' },
+];
+
+const ACTIVE_STATUSES = ['pending', 'upcoming'];
+const SNAPSHOT_KEY = 'patient-portal:v1';
 
 function isoDate(value) {
   const next = String(value || '').trim();
@@ -137,7 +161,26 @@ function endTime(start, durationMin) {
   return `${displayHours}:${String(total % 60).padStart(2, '0')} ${suffix}`;
 }
 
-function createPatientPortalStore() {
+// Start of a "09:00 AM" slot on an ISO date, as a Date.
+function slotStart(date, time) {
+  const match = String(time).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match || !isoDate(date)) return null;
+  let hours = Number(match[1]) % 12;
+  if (match[3].toUpperCase() === 'PM') hours += 12;
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day, hours, Number(match[2]));
+}
+
+// Policy shown to patients: no cancelling / rescheduling inside 5 hours of the visit.
+const CHANGE_WINDOW_HOURS = 5;
+
+function bookingError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function createPatientPortalStore({ redis } = {}) {
   const appointmentsByPatient = new Map();
   const documentsByPatient = new Map();
 
@@ -151,6 +194,45 @@ function createPatientPortalStore() {
     return documentsByPatient.get(uid);
   }
 
+  // ── Persistence (write-through snapshot) ───────────────────────────────────
+  let writeChain = Promise.resolve();
+
+  function snapshot() {
+    return JSON.stringify({
+      appointments: Object.fromEntries(appointmentsByPatient),
+      documents: Object.fromEntries(documentsByPatient),
+    });
+  }
+
+  function persist() {
+    if (!redis || typeof redis.set !== 'function') return writeChain;
+    const body = snapshot();
+    writeChain = writeChain
+      .then(() => redis.set(SNAPSHOT_KEY, body))
+      .catch((error) => {
+        console.error(`[patient-portal] could not persist: ${error.message}`);
+      });
+    return writeChain;
+  }
+
+  const ready = (async () => {
+    if (!redis || typeof redis.get !== 'function') return;
+    try {
+      const raw = await redis.get(SNAPSHOT_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      for (const [uid, list] of Object.entries(data.appointments || {})) {
+        appointmentsByPatient.set(uid, Array.isArray(list) ? list : []);
+      }
+      for (const [uid, list] of Object.entries(data.documents || {})) {
+        documentsByPatient.set(uid, Array.isArray(list) ? list : []);
+      }
+    } catch (error) {
+      console.error(`[patient-portal] could not load saved data: ${error.message}`);
+    }
+  })();
+
+  // ── Rules ──────────────────────────────────────────────────────────────────
   function availableSlots(doctorId, date) {
     const doctor = DOCTORS.find((item) => item.id === doctorId);
     if (!doctor || !isoDate(date) || isPastDate(date)) return [];
@@ -158,9 +240,35 @@ function createPatientPortalStore() {
     if (!doctor.workingDays.includes(weekday)) return [];
     const reserved = [...appointmentsByPatient.values()]
       .flat()
-      .filter((item) => item.doctorId === doctorId && item.date === date && !['canceled'].includes(item.status))
+      .filter((item) => item.doctorId === doctorId && item.date === date && item.status !== 'canceled')
       .map((item) => item.time);
-    return SLOTS.filter((slot) => !reserved.includes(slot));
+    const now = Date.now();
+    return SLOTS.filter((slot) => {
+      if (reserved.includes(slot)) return false;
+      // Today: hide times that have already started.
+      const start = slotStart(date, slot);
+      return !start || start.getTime() > now;
+    });
+  }
+
+  function assertChangeAllowed(item, verb) {
+    const start = slotStart(item.date, item.time);
+    if (start && start.getTime() - Date.now() < CHANGE_WINDOW_HOURS * 3600 * 1000) {
+      throw bookingError(
+        'INVALID_STATUS',
+        `This appointment is within ${CHANGE_WINDOW_HOURS} hours, so it can no longer be ${verb} in the app. Please call the clinic.`
+      );
+    }
+  }
+
+  function patientHasSlot(uid, date, time, ignoreId) {
+    return appointments(uid).some(
+      (item) =>
+        item.id !== ignoreId &&
+        item.date === date &&
+        item.time === time &&
+        ACTIVE_STATUSES.includes(item.status)
+    );
   }
 
   function popularTreatments() {
@@ -171,11 +279,8 @@ function createPatientPortalStore() {
         counts.set(apt.treatmentId, (counts.get(apt.treatmentId) || 0) + 1);
       }
     }
-    const ranked = CATALOG
-      .map((item) => ({
-        ...item,
-        bookingCount: counts.get(item.id) || 0,
-      }))
+    const ranked = TREATMENTS
+      .map((item) => ({ ...item, bookingCount: counts.get(item.id) || 0 }))
       .sort((a, b) => {
         if (b.bookingCount !== a.bookingCount) return b.bookingCount - a.bookingCount;
         return String(a.name).localeCompare(String(b.name));
@@ -185,13 +290,73 @@ function createPatientPortalStore() {
     return booked.length ? booked : ranked;
   }
 
+  function withDocument(uid, item) {
+    const doc = documents(uid).find((entry) => entry.appointmentId === item.id);
+    return {
+      ...item,
+      document: doc ? { id: doc.id, name: doc.name, mimeType: doc.mimeType, size: doc.size || 0 } : null,
+    };
+  }
+
+  /**
+   * Treatment plans that still need attention for this patient:
+   *  - "due": sessions are left but nothing is booked
+   *  - "upcoming": the next session is already booked
+   */
+  function followUps(uid) {
+    const today = todayKey();
+    const byTreatment = new Map();
+    for (const apt of appointments(uid)) {
+      if (!apt.treatmentId) continue;
+      if (!byTreatment.has(apt.treatmentId)) byTreatment.set(apt.treatmentId, []);
+      byTreatment.get(apt.treatmentId).push(apt);
+    }
+    const items = [];
+    for (const [treatmentId, list] of byTreatment) {
+      const treatment = TREATMENTS.find((entry) => entry.id === treatmentId);
+      const total = Number(treatment?.sessions || Math.max(...list.map((a) => Number(a.sessions) || 1)));
+      const completed = list.filter((a) => a.status === 'completed');
+      const next = list
+        .filter((a) => ACTIVE_STATUSES.includes(a.status) && a.date >= today)
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))[0] || null;
+      const last = completed.slice().sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+      let status = null;
+      if (next) status = 'upcoming';
+      else if (completed.length > 0 && completed.length < total) status = 'due';
+      if (!status) continue;
+      const anchor = next || last || list[0];
+      items.push({
+        treatmentId,
+        treatment: anchor.treatment,
+        department: anchor.department,
+        doctorId: anchor.doctorId,
+        doctorName: anchor.doctorName,
+        basePrice: anchor.basePrice,
+        sessions: total,
+        completed: completed.length,
+        status,
+        next: next ? withDocument(uid, next) : null,
+        lastVisit: last ? last.date : null,
+      });
+    }
+    const rank = { due: 0, upcoming: 1 };
+    return items.sort((a, b) => {
+      if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
+      return String(a.next?.date || '').localeCompare(String(b.next?.date || ''));
+    });
+  }
+
   return {
+    ready,
+    flush: () => writeChain,
     catalog() {
       return {
-        treatments: CATALOG,
+        treatments: TREATMENTS,
         doctors: DOCTORS,
         categories: CATEGORIES,
         banners: BANNERS,
+        clinics: CLINICS,
+        regions: REGIONS,
         popular: popularTreatments(),
       };
     },
@@ -199,30 +364,53 @@ function createPatientPortalStore() {
       return { slots: availableSlots(doctorId, date) };
     },
     listAppointments(uid) {
-      return appointments(uid).slice().sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
+      return appointments(uid)
+        .slice()
+        .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
+        .map((item) => withDocument(uid, item));
     },
+    followUps,
     listDocuments(uid) {
       return documents(uid).slice();
     },
+    getDocument(uid, id) {
+      return documents(uid).find((entry) => entry.id === id) || null;
+    },
+    addDocument(uid, { appointmentId, name, mimeType, size }) {
+      const appointment = appointments(uid).find((entry) => entry.id === appointmentId);
+      if (!appointment) throw bookingError('NOT_FOUND', 'Appointment not found.');
+      const list = documents(uid);
+      // One attachment per appointment: a new upload replaces the old one.
+      const replaced = list.filter((entry) => entry.appointmentId === appointmentId).map((entry) => entry.id);
+      const kept = list.filter((entry) => entry.appointmentId !== appointmentId);
+      const doc = {
+        id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        appointmentId,
+        name: String(name || 'Document').slice(0, 160),
+        mimeType: String(mimeType || ''),
+        size: Number(size) || 0,
+        uploadedAt: new Date().toISOString(),
+      };
+      documentsByPatient.set(uid, [doc, ...kept]);
+      persist();
+      return { doc, replaced };
+    },
     createAppointment(uid, profile, input = {}) {
-      const treatment = CATALOG.find((item) => item.id === input.treatmentId);
+      const treatment = TREATMENTS.find((item) => item.id === input.treatmentId);
       const doctor = DOCTORS.find((item) => item.id === input.doctorId);
       const date = isoDate(input.date);
       const time = String(input.time || '').trim();
       if (!treatment || !doctor || !date || !time || doctor.department !== treatment.department) {
-        const error = new Error('Choose a treatment, eligible doctor, date and available time.');
-        error.code = 'INVALID_BOOKING';
-        throw error;
+        throw bookingError('INVALID_BOOKING', 'Choose a treatment, eligible doctor, date and available time.');
       }
       if (isPastDate(date)) {
-        const error = new Error('Please choose today or a future date.');
-        error.code = 'INVALID_BOOKING';
-        throw error;
+        throw bookingError('INVALID_BOOKING', 'Please choose today or a future date.');
       }
       if (!availableSlots(doctor.id, date).includes(time)) {
-        const error = new Error('This time is no longer available. Please choose another slot.');
-        error.code = 'SLOT_UNAVAILABLE';
-        throw error;
+        throw bookingError('SLOT_UNAVAILABLE', 'This time is no longer available. Please choose another slot.');
+      }
+      if (patientHasSlot(uid, date, time)) {
+        throw bookingError('SLOT_UNAVAILABLE', 'You already have an appointment at this time.');
       }
       const now = new Date().toISOString();
       const item = {
@@ -251,16 +439,8 @@ function createPatientPortalStore() {
         updatedAt: now,
       };
       appointments(uid).unshift(item);
-      if (input.document?.name) {
-        documents(uid).unshift({
-          id: `doc-${Date.now()}`,
-          appointmentId: item.id,
-          name: String(input.document.name),
-          mimeType: String(input.document.mimeType || ''),
-          uploadedAt: now,
-        });
-      }
-      return item;
+      persist();
+      return withDocument(uid, item);
     },
     updateAppointment(uid, id, input = {}) {
       const item = appointments(uid).find((entry) => entry.id === id);
@@ -268,24 +448,26 @@ function createPatientPortalStore() {
       const action = String(input.action || '').toLowerCase();
       if (action === 'cancel') {
         if (['completed', 'canceled'].includes(item.status)) {
-          const error = new Error('This appointment cannot be cancelled.');
-          error.code = 'INVALID_STATUS';
-          throw error;
+          throw bookingError('INVALID_STATUS', 'This appointment cannot be cancelled.');
         }
+        assertChangeAllowed(item, 'cancelled');
         item.status = 'canceled';
         item.cancelReason = String(input.reason || '').trim();
       } else if (action === 'reschedule') {
+        if (['completed', 'canceled'].includes(item.status)) {
+          throw bookingError('INVALID_STATUS', 'This appointment cannot be rescheduled.');
+        }
+        assertChangeAllowed(item, 'rescheduled');
         const date = isoDate(input.date);
         const time = String(input.time || '').trim();
         if (isPastDate(date)) {
-          const error = new Error('Please choose today or a future date.');
-          error.code = 'SLOT_UNAVAILABLE';
-          throw error;
+          throw bookingError('SLOT_UNAVAILABLE', 'Please choose today or a future date.');
         }
         if (!date || !time || !availableSlots(item.doctorId, date).includes(time)) {
-          const error = new Error('Choose an available date and time.');
-          error.code = 'SLOT_UNAVAILABLE';
-          throw error;
+          throw bookingError('SLOT_UNAVAILABLE', 'Choose an available date and time.');
+        }
+        if (patientHasSlot(uid, date, time, item.id)) {
+          throw bookingError('SLOT_UNAVAILABLE', 'You already have an appointment at this time.');
         }
         item.date = date;
         item.dateLabel = toDateLabel(date);
@@ -294,12 +476,11 @@ function createPatientPortalStore() {
         item.status = 'pending';
         item.rescheduleReason = String(input.reason || '').trim();
       } else {
-        const error = new Error('Unsupported appointment action.');
-        error.code = 'INVALID_ACTION';
-        throw error;
+        throw bookingError('INVALID_ACTION', 'Unsupported appointment action.');
       }
       item.updatedAt = new Date().toISOString();
-      return item;
+      persist();
+      return withDocument(uid, item);
     },
   };
 }

@@ -30,7 +30,14 @@ function createApp({ redis, mailer, users, config }) {
       },
     })
   );
-  app.use(express.json({ limit: '32kb' }));
+  // Document uploads arrive as base64 JSON, so that one route accepts a larger body.
+  const smallJson = express.json({ limit: '32kb' });
+  const uploadJson = express.json({ limit: '8mb' });
+  app.use((req, res, next) =>
+    req.method === 'POST' && req.path === '/api/patient/documents'
+      ? uploadJson(req, res, next)
+      : smallJson(req, res, next)
+  );
 
   const reset = createPasswordReset({
     redis,
@@ -58,9 +65,25 @@ function createApp({ redis, mailer, users, config }) {
     },
   });
   const clinic = createClinicStore();
-  const patientPortal = createPatientPortalStore();
+  const patientPortal = createPatientPortalStore({ redis });
+  const documentKey = (id) => `patient-doc:${id}`;
+  const DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+  const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 
   const clientIp = (req) => req.ip || req.socket.remoteAddress || 'unknown';
+  const patientProfileKey = (uid) => `patient-profile:${uid}`;
+
+  async function getPatientProfile(uid) {
+    const stored = await redis.get(patientProfileKey(uid));
+    return stored ? JSON.parse(stored) : null;
+  }
+
+  async function savePatientProfile(uid, profile) {
+    const existing = (await getPatientProfile(uid)) || {};
+    const updated = { ...existing, ...profile };
+    await redis.set(patientProfileKey(uid), JSON.stringify(updated));
+    return updated;
+  }
 
   async function requireUser(req, _res, next) {
     try {
@@ -160,6 +183,20 @@ function createApp({ redis, mailer, users, config }) {
     }
   });
 
+  /** First-time Google sign-in: make the new account a patient (existing roles are kept). */
+  app.post('/api/auth/google/complete', requireUser, async (req, res) => {
+    if (typeof users.ensurePatientRole !== 'function') {
+      throw new ApiError(503, 'GOOGLE_UNAVAILABLE', 'Google sign-in is not available.');
+    }
+    try {
+      const result = await users.ensurePatientRole(req.user.uid);
+      res.json({ ok: true, ...result });
+    } catch (error) {
+      if (error?.code === 'EMAIL_STAFF') throw new ApiError(409, 'EMAIL_STAFF', error.message);
+      throw error;
+    }
+  });
+
   /** Demo clinic-manager email/password login (creates/repairs Auth user + returns custom token). */
   app.post('/api/auth/demo-login', async (req, res) => {
     if (typeof users.ensureDemoManagerLogin !== 'function') {
@@ -182,10 +219,8 @@ function createApp({ redis, mailer, users, config }) {
   });
 
   app.get('/api/me', requireUser, async (req, res) => {
-    let profile = null;
-    if (typeof users.getUser === 'function') {
-      profile = await users.getUser(req.user.uid);
-    }
+    const profile =
+      req.user.role === 'patient' ? await getPatientProfile(req.user.uid) : null;
     const branchId = req.user.branchId || req.user.clinicId || null;
     const branch =
       branchId && typeof clinic.getBranch === 'function' ? clinic.getBranch(branchId) : null;
@@ -238,8 +273,47 @@ function createApp({ redis, mailer, users, config }) {
 
   // Patient portal. Patient identity always comes from the verified token;
   // callers cannot read or change another patient's appointments/documents.
+  app.use('/api/patient', (_req, _res, next) => {
+    patientPortal.ready.then(() => next(), next);
+  });
+
   app.get('/api/patient/catalog', requireUser, requireRole('patient'), (_req, res) => {
     res.json({ ok: true, ...patientPortal.catalog() });
+  });
+
+  app.get('/api/patient/profile', requireUser, requireRole('patient'), async (req, res) => {
+    const profile = await getPatientProfile(req.user.uid);
+    res.json({ ok: true, profile });
+  });
+
+  app.put('/api/patient/profile', requireUser, requireRole('patient'), async (req, res) => {
+    const region = String(req.body?.region || '').trim();
+    const gender = String(req.body?.gender || '').trim();
+    const phone = String(req.body?.phone || '').trim();
+    const name = String(req.body?.name || req.user.name || '').trim();
+    const validRegions = new Set(['UAE', 'KSA', 'Oman', 'Pakistan', 'USA']);
+    const validGenders = new Set(['Female', 'Male', 'Prefer not to say']);
+
+    if (!validRegions.has(region)) {
+      throw new ApiError(400, 'INVALID_REGION', 'Select a valid region.');
+    }
+    if (!validGenders.has(gender)) {
+      throw new ApiError(400, 'INVALID_GENDER', 'Select a valid gender.');
+    }
+    if (phone.length > 32) {
+      throw new ApiError(400, 'INVALID_PHONE', 'Phone number is too long.');
+    }
+    if (name.length > 120) {
+      throw new ApiError(400, 'INVALID_NAME', 'Name is too long.');
+    }
+
+    const profile = await savePatientProfile(req.user.uid, {
+      name,
+      region,
+      gender,
+      phone,
+    });
+    res.json({ ok: true, profile });
   });
 
   app.get('/api/patient/availability', requireUser, requireRole('patient'), (req, res) => {
@@ -255,6 +329,7 @@ function createApp({ redis, mailer, users, config }) {
   app.post('/api/patient/appointments', requireUser, requireRole('patient'), async (req, res) => {
     try {
       const item = patientPortal.createAppointment(req.user.uid, req.user, req.body || {});
+      await patientPortal.flush();
       await notifications.publishEvent({
         uid: req.user.uid,
         type: 'bookingUpdates',
@@ -276,6 +351,7 @@ function createApp({ redis, mailer, users, config }) {
     try {
       const item = patientPortal.updateAppointment(req.user.uid, req.params.id, req.body || {});
       if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
+      await patientPortal.flush();
       await notifications.publishEvent({
         uid: req.user.uid,
         type: 'bookingUpdates',
@@ -296,8 +372,52 @@ function createApp({ redis, mailer, users, config }) {
     }
   });
 
+  app.get('/api/patient/followups', requireUser, requireRole('patient'), (req, res) => {
+    res.json({ ok: true, items: patientPortal.followUps(req.user.uid) });
+  });
+
   app.get('/api/patient/documents', requireUser, requireRole('patient'), (req, res) => {
     res.json({ ok: true, items: patientPortal.listDocuments(req.user.uid) });
+  });
+
+  // Attach a document (PDF / image, base64, max 5 MB) to one of the patient's appointments.
+  app.post('/api/patient/documents', requireUser, requireRole('patient'), async (req, res) => {
+    const appointmentId = String(req.body?.appointmentId || '').trim();
+    const name = String(req.body?.name || '').trim();
+    const mimeType = String(req.body?.mimeType || '').trim().toLowerCase();
+    const data = String(req.body?.data || '').replace(/^data:[^,]*,/, '');
+    if (!appointmentId || !name || !data) {
+      throw new ApiError(400, 'INVALID_DOCUMENT', 'Appointment, file name and file data are required.');
+    }
+    if (!DOCUMENT_TYPES.has(mimeType)) {
+      throw new ApiError(400, 'INVALID_DOCUMENT_TYPE', 'Upload a PDF, JPG, PNG or WebP file.');
+    }
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
+      throw new ApiError(400, 'INVALID_DOCUMENT', 'The file could not be read.');
+    }
+    const size = Buffer.from(data, 'base64').length;
+    if (size > MAX_DOCUMENT_BYTES) {
+      throw new ApiError(400, 'DOCUMENT_TOO_LARGE', 'Files can be up to 5 MB.');
+    }
+    let result;
+    try {
+      result = patientPortal.addDocument(req.user.uid, { appointmentId, name, mimeType, size });
+    } catch (error) {
+      if (error?.code === 'NOT_FOUND') throw new ApiError(404, 'NOT_FOUND', error.message);
+      throw error;
+    }
+    await redis.set(documentKey(result.doc.id), data);
+    await Promise.all(result.replaced.map((oldId) => redis.del(documentKey(oldId)).catch(() => {})));
+    await patientPortal.flush();
+    res.status(201).json({ ok: true, item: result.doc });
+  });
+
+  app.get('/api/patient/documents/:id/content', requireUser, requireRole('patient'), async (req, res) => {
+    const doc = patientPortal.getDocument(req.user.uid, req.params.id);
+    if (!doc) throw new ApiError(404, 'NOT_FOUND', 'Document not found.');
+    const data = await redis.get(documentKey(doc.id));
+    if (!data) throw new ApiError(404, 'NOT_FOUND', 'Document file is no longer available.');
+    res.json({ ok: true, name: doc.name, mimeType: doc.mimeType, data });
   });
 
   app.post('/api/notifications/read', requireUser, async (req, res) => {
