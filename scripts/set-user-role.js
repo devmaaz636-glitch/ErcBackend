@@ -28,14 +28,6 @@ async function main() {
     region: role === 'doctor' ? 'UAE' : existingClaims.region || null,
   };
 
-  const updates = {};
-  if (role === 'doctor') {
-    updates.displayName = user.displayName || 'Dr Zeeshan Forward';
-  }
-  if (Object.keys(updates).length) {
-    await auth.updateUser(user.uid, updates);
-  }
-
   await auth.setCustomUserClaims(user.uid, claims);
   console.log(
     `Updated role for ${user.email || email}: ${role}${branchId ? ` (${branchId})` : ''}`

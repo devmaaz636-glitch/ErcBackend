@@ -67,8 +67,10 @@ const TREATMENTS = [
   },
 ];
 
+// `email` links a doctor's login to their record (a `doctorId` custom claim
+// also works). It is never sent to patients.
 const DOCTORS = [
-  { id: 'dr-ahmed-khan', name: 'Dr. Ahmed Khan', department: 'Laser', specialty: 'Laser Specialist', workingDays: [1, 2, 3, 4, 5, 6] },
+  { email: 'ercdoctor@gmail.com', id: 'dr-ahmed-khan', name: 'Dr. Ahmed Khan', department: 'Laser', specialty: 'Laser Specialist', workingDays: [1, 2, 3, 4, 5, 6] },
   { id: 'dr-sarah-malik', name: 'Dr. Sarah Malik', department: 'Laser', specialty: 'Laser Specialist', workingDays: [1, 2, 4, 5, 6] },
   { id: 'dr-yusuf-alharbi', name: 'Dr. Yusuf Alharbi', department: 'Hair', specialty: 'Hair Specialist', workingDays: [2, 3, 4, 5, 6] },
   { id: 'dr-maya-quinn', name: 'Dr. Maya Quinn', department: 'Injectables', specialty: 'Injectables Specialist', workingDays: [1, 3, 4, 5, 6] },
@@ -125,6 +127,7 @@ const REGIONS = [
 ];
 
 const ACTIVE_STATUSES = ['pending', 'upcoming'];
+const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const SNAPSHOT_KEY = 'patient-portal:v1';
 
 function isoDate(value) {
@@ -183,6 +186,9 @@ function bookingError(code, message) {
 function createPatientPortalStore({ redis } = {}) {
   const appointmentsByPatient = new Map();
   const documentsByPatient = new Map();
+  const medicalByPatient = new Map();
+  const doctorUids = new Map();
+  let scheduleRequests = [];
 
   function appointments(uid) {
     if (!appointmentsByPatient.has(uid)) appointmentsByPatient.set(uid, []);
@@ -201,6 +207,9 @@ function createPatientPortalStore({ redis } = {}) {
     return JSON.stringify({
       appointments: Object.fromEntries(appointmentsByPatient),
       documents: Object.fromEntries(documentsByPatient),
+      medical: Object.fromEntries(medicalByPatient),
+      doctorUids: Object.fromEntries(doctorUids),
+      scheduleRequests,
     });
   }
 
@@ -227,6 +236,13 @@ function createPatientPortalStore({ redis } = {}) {
       for (const [uid, list] of Object.entries(data.documents || {})) {
         documentsByPatient.set(uid, Array.isArray(list) ? list : []);
       }
+      for (const [uid, record] of Object.entries(data.medical || {})) {
+        medicalByPatient.set(uid, record);
+      }
+      for (const [doctorId, uid] of Object.entries(data.doctorUids || {})) {
+        doctorUids.set(doctorId, uid);
+      }
+      scheduleRequests = Array.isArray(data.scheduleRequests) ? data.scheduleRequests : [];
     } catch (error) {
       console.error(`[patient-portal] could not load saved data: ${error.message}`);
     }
@@ -237,7 +253,12 @@ function createPatientPortalStore({ redis } = {}) {
     const doctor = DOCTORS.find((item) => item.id === doctorId);
     if (!doctor || !isoDate(date) || isPastDate(date)) return [];
     const weekday = new Date(`${date}T00:00:00`).getDay();
-    if (!doctor.workingDays.includes(weekday)) return [];
+    if (onLeave(doctorId, date)) return [];
+    const hours = approvedHours(doctorId);
+    const day = hours ? hours[WEEKDAY_KEYS[weekday]] : null;
+    if (hours ? !day?.enabled : !doctor.workingDays.includes(weekday)) return [];
+    const from = day ? slotStart(date, day.start) : null;
+    const until = day ? slotStart(date, day.end) : null;
     const reserved = [...appointmentsByPatient.values()]
       .flat()
       .filter((item) => item.doctorId === doctorId && item.date === date && item.status !== 'canceled')
@@ -247,6 +268,8 @@ function createPatientPortalStore({ redis } = {}) {
       if (reserved.includes(slot)) return false;
       // Today: hide times that have already started.
       const start = slotStart(date, slot);
+      if (start && from && start < from) return false;
+      if (start && until && start >= until) return false;
       return !start || start.getTime() > now;
     });
   }
@@ -269,6 +292,82 @@ function createPatientPortalStore({ redis } = {}) {
         item.time === time &&
         ACTIVE_STATUSES.includes(item.status)
     );
+  }
+
+  // ── Doctors, schedule and leave ────────────────────────────────────────────
+  function approvedHours(doctorId) {
+    const approved = scheduleRequests
+      .filter((r) => r.doctorId === doctorId && r.mode !== 'leave' && r.status === 'approved' && r.weeklySchedule)
+      .sort((a, b) => String(b.decidedAt || '').localeCompare(String(a.decidedAt || '')));
+    return approved[0]?.weeklySchedule || null;
+  }
+
+  function onLeave(doctorId, date) {
+    return scheduleRequests.some(
+      (r) =>
+        r.doctorId === doctorId &&
+        r.mode === 'leave' &&
+        r.status === 'approved' &&
+        r.leaveFrom &&
+        date >= r.leaveFrom &&
+        date <= (r.leaveTo || r.leaveFrom)
+    );
+  }
+
+  function publicDoctor(doctor) {
+    const { email, ...rest } = doctor;
+    const hours = approvedHours(doctor.id);
+    return {
+      ...rest,
+      workingDays: hours
+        ? WEEKDAY_KEYS.map((key, index) => (hours[key]?.enabled ? index : null)).filter((v) => v !== null)
+        : doctor.workingDays,
+    };
+  }
+
+  function defaultWeekly(doctor) {
+    return Object.fromEntries(
+      WEEKDAY_KEYS.map((key, index) => [
+        key,
+        { enabled: doctor.workingDays.includes(index), start: '09:00 AM', end: '05:00 PM' },
+      ])
+    );
+  }
+
+  // ── Appointments as the doctor sees them ───────────────────────────────────
+  function doctorAppointments(doctorId) {
+    return [...appointmentsByPatient.values()]
+      .flat()
+      .filter((item) => item.doctorId === doctorId)
+      .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
+      .map((item) => withDocument(item.patientUid, item));
+  }
+
+  function sortKey(item) {
+    const start = slotStart(item.date, item.time);
+    return start ? String(start.getTime()).padStart(15, '0') : `${item.date}`;
+  }
+
+  function findForDoctor(doctorId, id) {
+    for (const list of appointmentsByPatient.values()) {
+      const item = list.find((entry) => entry.id === id && entry.doctorId === doctorId);
+      if (item) return item;
+    }
+    return null;
+  }
+
+  function doctorHasPatient(doctorId, patientUid) {
+    return appointments(patientUid).some((item) => item.doctorId === doctorId);
+  }
+
+  function medical(uid) {
+    const record = medicalByPatient.get(uid);
+    return {
+      allergies: record?.allergies || [],
+      medications: record?.medications || [],
+      updatedAt: record?.updatedAt || null,
+      updatedBy: record?.updatedBy || null,
+    };
   }
 
   function popularTreatments() {
@@ -349,10 +448,181 @@ function createPatientPortalStore({ redis } = {}) {
   return {
     ready,
     flush: () => writeChain,
+
+    // ── Doctor identity ──
+    findDoctor({ doctorId, email } = {}) {
+      const mail = String(email || '').trim().toLowerCase();
+      return (
+        DOCTORS.find((item) => doctorId && item.id === doctorId) ||
+        DOCTORS.find((item) => mail && item.email === mail) ||
+        null
+      );
+    },
+    rememberDoctorUid(doctorId, uid) {
+      if (!uid || doctorUids.get(doctorId) === uid) return;
+      doctorUids.set(doctorId, uid);
+      persist();
+    },
+    getDoctorUid: (doctorId) => doctorUids.get(doctorId) || null,
+
+    // ── Doctor views ──
+    doctorAppointments,
+    doctorAppointment(doctorId, id) {
+      const item = findForDoctor(doctorId, id);
+      if (!item) return null;
+      const history = doctorAppointments(doctorId).filter(
+        (entry) => entry.patientUid === item.patientUid && entry.id !== item.id
+      );
+      return {
+        appointment: withDocument(item.patientUid, item),
+        history: history.reverse(),
+        medical: medical(item.patientUid),
+      };
+    },
+    doctorDashboard(doctorId) {
+      const today = todayKey();
+      const all = doctorAppointments(doctorId);
+      const todays = all.filter((a) => a.date === today && a.status !== 'canceled');
+      const upcoming = all.filter((a) => a.status === 'upcoming' && a.date >= today);
+      const pending = all.filter((a) => a.status === 'pending' && a.date >= today);
+      const next =
+        upcoming.find((a) => {
+          const start = slotStart(a.date, a.time);
+          return start && start.getTime() >= Date.now();
+        }) || null;
+      const followUpList = [];
+      for (const uid of new Set(all.map((a) => a.patientUid))) {
+        for (const plan of followUps(uid)) {
+          if (plan.doctorId === doctorId && plan.status === 'due') {
+            const latest = all.filter((a) => a.patientUid === uid && a.treatmentId === plan.treatmentId).pop();
+            followUpList.push({ ...plan, patientUid: uid, patientName: latest.patientName, appointmentId: latest.id });
+          }
+        }
+      }
+      return {
+        stats: {
+          today: todays.length,
+          upcoming: upcoming.length,
+          pending: pending.length,
+          canceledToday: all.filter((a) => a.date === today && a.status === 'canceled').length,
+        },
+        next,
+        today: todays,
+        pending,
+        followUps: followUpList,
+      };
+    },
+    doctorPatients(doctorId) {
+      const today = todayKey();
+      const grouped = new Map();
+      for (const item of doctorAppointments(doctorId)) {
+        if (!grouped.has(item.patientUid)) grouped.set(item.patientUid, []);
+        grouped.get(item.patientUid).push(item);
+      }
+      return [...grouped.entries()].map(([uid, list]) => {
+        const next = list.find((a) => ACTIVE_STATUSES.includes(a.status) && a.date >= today) || null;
+        const latest = next || list[list.length - 1];
+        return {
+          uid,
+          name: latest.patientName,
+          appointmentId: latest.id,
+          treatment: latest.treatment,
+          status: latest.status,
+          date: latest.date,
+          dateLabel: latest.dateLabel,
+          time: latest.time,
+          visits: list.filter((a) => a.status === 'completed').length,
+          total: list.length,
+        };
+      });
+    },
+    doctorUpdateAppointment(doctorId, id, input = {}) {
+      const item = findForDoctor(doctorId, id);
+      if (!item) return null;
+      const action = String(input.action || '').toLowerCase();
+      const today = todayKey();
+      if (action === 'confirm') {
+        if (item.status !== 'pending') throw bookingError('INVALID_STATUS', 'Only a pending request can be confirmed.');
+        if (item.date < today) throw bookingError('INVALID_STATUS', 'This date has passed. Reschedule it first.');
+        item.status = 'upcoming';
+        item.confirmedAt = new Date().toISOString();
+      } else if (action === 'complete') {
+        if (item.status !== 'upcoming') throw bookingError('INVALID_STATUS', 'Confirm the appointment before completing it.');
+        if (item.date > today) throw bookingError('INVALID_STATUS', 'A future appointment cannot be marked completed.');
+        item.status = 'completed';
+        item.completedAt = new Date().toISOString();
+        item.visitNotes = String(input.notes || '').trim().slice(0, 2000);
+      } else if (action === 'cancel') {
+        if (!ACTIVE_STATUSES.includes(item.status)) throw bookingError('INVALID_STATUS', 'This appointment cannot be cancelled.');
+        const reason = String(input.reason || '').trim();
+        if (!reason) throw bookingError('INVALID_ACTION', 'Give the patient a reason for cancelling.');
+        item.status = 'canceled';
+        item.canceledBy = 'doctor';
+        item.cancelReason = reason.slice(0, 500);
+      } else if (action === 'reschedule') {
+        if (!ACTIVE_STATUSES.includes(item.status)) throw bookingError('INVALID_STATUS', 'This appointment cannot be rescheduled.');
+        const date = isoDate(input.date);
+        const time = String(input.time || '').trim();
+        if (!date || !time || !availableSlots(doctorId, date).includes(time)) {
+          throw bookingError('SLOT_UNAVAILABLE', 'Choose an available date and time.');
+        }
+        if (patientHasSlot(item.patientUid, date, time, item.id)) {
+          throw bookingError('SLOT_UNAVAILABLE', 'The patient already has an appointment at this time.');
+        }
+        item.date = date;
+        item.dateLabel = toDateLabel(date);
+        item.time = time;
+        item.endTime = endTime(time, item.durationMinutes);
+        item.status = 'upcoming';
+        item.rescheduledBy = 'doctor';
+        item.rescheduleReason = String(input.reason || '').trim().slice(0, 500);
+      } else {
+        throw bookingError('INVALID_ACTION', 'Unsupported appointment action.');
+      }
+      item.updatedAt = new Date().toISOString();
+      persist();
+      return withDocument(item.patientUid, item);
+    },
+
+    // ── Medical record (patient writes own; their doctor may edit) ──
+    getMedical: medical,
+    doctorHasPatient,
+    saveMedical(uid, input = {}, updatedBy = 'patient') {
+      const text = (value, max) => String(value || '').trim().slice(0, max);
+      const allergies = (Array.isArray(input.allergies) ? input.allergies : [])
+        .map((entry) => text(entry, 80))
+        .filter(Boolean)
+        .slice(0, 30);
+      const medications = (Array.isArray(input.medications) ? input.medications : [])
+        .map((entry) => ({ name: text(entry?.name, 80), frequency: text(entry?.frequency, 40) }))
+        .filter((entry) => entry.name)
+        .slice(0, 30);
+      medicalByPatient.set(uid, { allergies, medications, updatedAt: new Date().toISOString(), updatedBy });
+      persist();
+      return medical(uid);
+    },
+
+    // ── Schedule and leave ──
+    saveScheduleRequest(request) {
+      const index = scheduleRequests.findIndex((r) => r.id === request.id);
+      if (index >= 0) scheduleRequests[index] = { ...scheduleRequests[index], ...request };
+      else scheduleRequests.unshift({ ...request });
+      persist();
+    },
+    allScheduleRequests: () => scheduleRequests.slice(),
+    doctorSchedule(doctorId) {
+      const doctor = DOCTORS.find((item) => item.id === doctorId);
+      const mine = scheduleRequests.filter((r) => r.doctorId === doctorId);
+      return {
+        weeklySchedule: approvedHours(doctorId) || defaultWeekly(doctor),
+        leaves: mine.filter((r) => r.mode === 'leave'),
+        latestHoursRequest: mine.find((r) => r.mode !== 'leave') || null,
+      };
+    },
     catalog() {
       return {
         treatments: TREATMENTS,
-        doctors: DOCTORS,
+        doctors: DOCTORS.map(publicDoctor),
         categories: CATEGORIES,
         banners: BANNERS,
         clinics: CLINICS,

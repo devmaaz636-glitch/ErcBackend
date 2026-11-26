@@ -67,6 +67,12 @@ function createApp({ redis, mailer, users, config }) {
   const clinic = createClinicStore();
   const patientPortal = createPatientPortalStore({ redis });
   const documentKey = (id) => `patient-doc:${id}`;
+  const ready = patientPortal.ready.then(() => {
+    patientPortal
+      .allScheduleRequests()
+      .reverse()
+      .forEach((saved) => clinic.restoreDoctorScheduleRequest(saved));
+  });
   const DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
   const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 
@@ -221,6 +227,10 @@ function createApp({ redis, mailer, users, config }) {
   app.get('/api/me', requireUser, async (req, res) => {
     const profile =
       req.user.role === 'patient' ? await getPatientProfile(req.user.uid) : null;
+    const doctor =
+      req.user.role === 'doctor'
+        ? patientPortal.findDoctor({ doctorId: req.user.doctorId, email: req.user.email })
+        : null;
     const branchId = req.user.branchId || req.user.clinicId || null;
     const branch =
       branchId && typeof clinic.getBranch === 'function' ? clinic.getBranch(branchId) : null;
@@ -235,6 +245,7 @@ function createApp({ redis, mailer, users, config }) {
       user: {
         ...req.user,
         ...(profile || {}),
+        ...(doctor ? { name: doctor.name, specialty: doctor.specialty, doctorId: doctor.id } : {}),
         role: req.user.role,
         branchId,
         clinicId: req.user.clinicId || branchId,
@@ -273,8 +284,150 @@ function createApp({ redis, mailer, users, config }) {
 
   // Patient portal. Patient identity always comes from the verified token;
   // callers cannot read or change another patient's appointments/documents.
-  app.use('/api/patient', (_req, _res, next) => {
-    patientPortal.ready.then(() => next(), next);
+  app.use(['/api/patient', '/api/doctor', '/api/manager'], (_req, _res, next) => {
+    ready.then(() => next(), next);
+  });
+
+  // ── Doctor portal ──────────────────────────────────────────────────────────
+  /** The signed-in doctor's own record; every doctor route is scoped to it. */
+  function requireDoctor(req, _res, next) {
+    const doctor = patientPortal.findDoctor({ doctorId: req.user.doctorId, email: req.user.email });
+    if (!doctor) {
+      return next(
+        new ApiError(403, 'DOCTOR_PROFILE_MISSING', 'This account is not linked to a doctor profile yet.')
+      );
+    }
+    req.doctor = doctor;
+    patientPortal.rememberDoctorUid(doctor.id, req.user.uid);
+    next();
+  }
+  const doctorOnly = [requireUser, requireRole('doctor'), requireDoctor];
+
+  async function notifyUser(uid, title, body, meta = {}) {
+    if (!uid) return;
+    await notifications
+      .publishEvent({ uid, type: 'bookingUpdates', title, body, meta, force: true })
+      .catch(() => {});
+  }
+
+  async function notifyDoctor(doctorId, title, body, meta = {}) {
+    let uid = patientPortal.getDoctorUid(doctorId);
+    const doctor = patientPortal.findDoctor({ doctorId });
+    if (!uid && doctor?.email && typeof users.findByEmail === 'function') {
+      uid = (await users.findByEmail(doctor.email).catch(() => null))?.uid || null;
+    }
+    await notifyUser(uid, title, body, meta);
+  }
+
+  /** Contact details a doctor is allowed to see for their own patient. */
+  async function patientContact(uid, fallbackName) {
+    const profile = (await getPatientProfile(uid).catch(() => null)) || {};
+    let email = '';
+    if (typeof users.getUserEmail === 'function') {
+      email = (await users.getUserEmail(uid).catch(() => '')) || '';
+    }
+    return {
+      uid,
+      name: profile.name || fallbackName || 'Patient',
+      phone: profile.phone || '',
+      gender: profile.gender || '',
+      region: profile.region || '',
+      email,
+    };
+  }
+
+  const DOCTOR_ERRORS = new Set(['INVALID_STATUS', 'SLOT_UNAVAILABLE', 'INVALID_ACTION']);
+
+  app.get('/api/doctor/me', ...doctorOnly, (req, res) => {
+    const { id, name, specialty, department } = req.doctor;
+    const branchId = req.user.branchId || 'br-dubai';
+    const branch = clinic.getBranch(branchId);
+    res.json({
+      ok: true,
+      doctor: { id, name, specialty, department, email: req.user.email, branchId, branchName: branch?.name || '' },
+    });
+  });
+
+  app.get('/api/doctor/dashboard', ...doctorOnly, (req, res) => {
+    res.json({ ok: true, ...patientPortal.doctorDashboard(req.doctor.id) });
+  });
+
+  app.get('/api/doctor/appointments', ...doctorOnly, (req, res) => {
+    res.json({ ok: true, items: patientPortal.doctorAppointments(req.doctor.id) });
+  });
+
+  app.get('/api/doctor/appointments/:id', ...doctorOnly, async (req, res) => {
+    const detail = patientPortal.doctorAppointment(req.doctor.id, req.params.id);
+    if (!detail) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
+    const patient = await patientContact(detail.appointment.patientUid, detail.appointment.patientName);
+    res.json({ ok: true, ...detail, patient });
+  });
+
+  app.patch('/api/doctor/appointments/:id', ...doctorOnly, async (req, res) => {
+    let item;
+    try {
+      item = patientPortal.doctorUpdateAppointment(req.doctor.id, req.params.id, req.body || {});
+    } catch (error) {
+      if (DOCTOR_ERRORS.has(error?.code)) throw new ApiError(400, error.code, error.message);
+      throw error;
+    }
+    if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
+    await patientPortal.flush();
+    const action = String(req.body?.action || '').toLowerCase();
+    const when = `${item.dateLabel} at ${item.time}`;
+    const messages = {
+      confirm: ['Appointment confirmed', `${req.doctor.name} confirmed ${item.treatment} on ${when}.`],
+      complete: ['Visit completed', `Your ${item.treatment} session was marked completed.`],
+      cancel: ['Appointment cancelled', `${item.treatment} on ${when} was cancelled: ${item.cancelReason}`],
+      reschedule: ['Appointment rescheduled', `${item.treatment} was moved to ${when}.`],
+    };
+    const [title, body] = messages[action];
+    await notifyUser(item.patientUid, title, body, { appointmentId: item.id, open: 'PatientAppointmentDetail' });
+    res.json({ ok: true, item });
+  });
+
+  app.get('/api/doctor/appointments/:id/document', ...doctorOnly, async (req, res) => {
+    const detail = patientPortal.doctorAppointment(req.doctor.id, req.params.id);
+    const meta = detail?.appointment?.document;
+    if (!meta) throw new ApiError(404, 'NOT_FOUND', 'No document attached.');
+    const data = await redis.get(documentKey(meta.id));
+    if (!data) throw new ApiError(404, 'NOT_FOUND', 'Document file is no longer available.');
+    res.json({ ok: true, name: meta.name, mimeType: meta.mimeType, data });
+  });
+
+  app.get('/api/doctor/availability', ...doctorOnly, (req, res) => {
+    const date = String(req.query?.date || '').trim();
+    res.json({ ok: true, ...patientPortal.availability(req.doctor.id, date) });
+  });
+
+  app.get('/api/doctor/patients', ...doctorOnly, (req, res) => {
+    res.json({ ok: true, items: patientPortal.doctorPatients(req.doctor.id) });
+  });
+
+  app.put('/api/doctor/patients/:uid/medical', ...doctorOnly, async (req, res) => {
+    if (!patientPortal.doctorHasPatient(req.doctor.id, req.params.uid)) {
+      throw new ApiError(404, 'NOT_FOUND', 'Patient not found.');
+    }
+    const record = patientPortal.saveMedical(req.params.uid, req.body || {}, req.doctor.name);
+    await patientPortal.flush();
+    await notifyUser(req.params.uid, 'Medical information updated', `${req.doctor.name} updated your medical information.`, {
+      open: 'PatientMedical',
+    });
+    res.json({ ok: true, medical: record });
+  });
+
+  app.get('/api/doctor/schedule', ...doctorOnly, (req, res) => {
+    res.json({ ok: true, ...patientPortal.doctorSchedule(req.doctor.id) });
+  });
+
+  app.get('/api/patient/medical', requireUser, requireRole('patient'), (req, res) => {
+    res.json({ ok: true, medical: patientPortal.getMedical(req.user.uid) });
+  });
+
+  app.put('/api/patient/medical', requireUser, requireRole('patient'), async (req, res) => {
+    const record = patientPortal.saveMedical(req.user.uid, req.body || {}, 'patient');
+    await patientPortal.flush();
+    res.json({ ok: true, medical: record });
   });
 
   app.get('/api/patient/catalog', requireUser, requireRole('patient'), (_req, res) => {
@@ -330,6 +483,12 @@ function createApp({ redis, mailer, users, config }) {
     try {
       const item = patientPortal.createAppointment(req.user.uid, req.user, req.body || {});
       await patientPortal.flush();
+      await notifyDoctor(
+        item.doctorId,
+        'New appointment request',
+        `${item.patientName} asked for ${item.treatment} on ${item.dateLabel} at ${item.time}.`,
+        { appointmentId: item.id, open: 'DoctorAppointment' }
+      );
       await notifications.publishEvent({
         uid: req.user.uid,
         type: 'bookingUpdates',
@@ -352,6 +511,14 @@ function createApp({ redis, mailer, users, config }) {
       const item = patientPortal.updateAppointment(req.user.uid, req.params.id, req.body || {});
       if (!item) throw new ApiError(404, 'NOT_FOUND', 'Appointment not found.');
       await patientPortal.flush();
+      await notifyDoctor(
+        item.doctorId,
+        item.status === 'canceled' ? 'Appointment cancelled by patient' : 'Patient asked to reschedule',
+        item.status === 'canceled'
+          ? `${item.patientName} cancelled ${item.treatment} on ${item.dateLabel}.`
+          : `${item.patientName} now asks for ${item.dateLabel} at ${item.time}. Please confirm.`,
+        { appointmentId: item.id, open: 'DoctorAppointment' }
+      );
       await notifications.publishEvent({
         uid: req.user.uid,
         type: 'bookingUpdates',
@@ -672,6 +839,15 @@ function createApp({ redis, mailer, users, config }) {
     const item = clinic.updateManagerAlert(req.user.branchId, req.params.id, req.body || {});
     if (!item) throw new ApiError(404, 'NOT_FOUND', 'Alert not found.');
 
+    // A manager decision changes what patients can book, so save it.
+    if (item.type === 'doctor_schedule' && item.scheduleRequestId) {
+      const decided = clinic.getDoctorScheduleRequest(item.scheduleRequestId);
+      if (decided) {
+        patientPortal.saveScheduleRequest(decided);
+        await patientPortal.flush();
+      }
+    }
+
     if (item.type === 'doctor_schedule' && item.resolvedAction) {
       const approved = item.resolvedAction === 'approve';
       const modeLabel = item.mode === 'leave' ? 'leave request' : 'schedule change';
@@ -707,18 +883,32 @@ function createApp({ redis, mailer, users, config }) {
     res.json({ ok: true, item });
   });
 
-  app.post('/api/doctor/schedule-requests', requireUser, requireRole('doctor'), async (req, res) => {
+  app.post('/api/doctor/schedule-requests', ...doctorOnly, async (req, res) => {
     const body = req.body || {};
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (body.mode === 'leave') {
+      const from = String(body.leaveFrom || '');
+      const to = String(body.leaveTo || from);
+      if (!datePattern.test(from) || !datePattern.test(to) || to < from) {
+        throw new ApiError(400, 'INVALID_LEAVE', 'Choose the first and last day of your leave.');
+      }
+    }
     const created = clinic.createDoctorScheduleRequest({
       mode: body.mode,
       doctorUid: req.user.uid,
-      doctorName: body.doctorName || req.user.name || req.user.displayName || 'Doctor',
-      branchId: body.branchId || req.user.branchId || 'br-dubai',
+      doctorId: req.doctor.id,
+      leaveFrom: body.mode === 'leave' ? body.leaveFrom : null,
+      leaveTo: body.mode === 'leave' ? body.leaveTo || body.leaveFrom : null,
+      doctorName: req.doctor.name,
+      branchId: req.user.branchId || 'br-dubai',
       preferDay: body.preferDay || null,
       preferTime: body.preferTime || null,
       reason: body.reason || '',
       weeklySchedule: body.weeklySchedule || null,
     });
+
+    patientPortal.saveScheduleRequest(created.request);
+    await patientPortal.flush();
 
     const modeLabel = created.request.mode === 'leave' ? 'leave request' : 'working hours change';
     const title = created.alert?.title || 'Doctor schedule request';

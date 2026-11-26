@@ -70,14 +70,13 @@ function createFirebaseUsers(firebaseConfig) {
       let region = decoded.region || null;
       let name = decoded.name || decoded.displayName || '';
 
-      // Demo doctor account: allow schedule APIs even before custom claims are set.
+      // Test doctor account: give it the doctor role even before claims are set.
       if (!role && email === 'ercdoctor@gmail.com') {
         role = 'doctor';
       }
       if (role === 'doctor' && !branchId) {
         branchId = 'br-dubai';
         region = region || 'UAE';
-        name = name || 'Dr Zeeshan Forward';
       }
 
       return {
@@ -88,6 +87,7 @@ function createFirebaseUsers(firebaseConfig) {
         branchId,
         region,
         name,
+        doctorId: decoded.doctorId || null,
       };
     },
     /**

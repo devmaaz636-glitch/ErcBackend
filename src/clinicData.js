@@ -2745,8 +2745,10 @@ function createClinicStore(options = {}) {
     createDoctorScheduleRequest(input = {}) {
       const now = new Date();
       const clock = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      const id = `dsr-${Date.now()}`;
-      const alertId = `malert-dsr-${Date.now()}`;
+      const id = input.id || `dsr-${Date.now()}`;
+      const alertId = input.alertId || `malert-dsr-${Date.now()}`;
+      const leaveFrom = input.leaveFrom || null;
+      const leaveTo = input.leaveTo || leaveFrom;
       const mode = String(input.mode || 'hours').toLowerCase() === 'leave' ? 'leave' : 'hours';
       const branchId = input.branchId || 'br-dubai';
       const doctorName = String(input.doctorName || 'Doctor').trim() || 'Doctor';
@@ -2756,8 +2758,8 @@ function createClinicStore(options = {}) {
       const title = mode === 'leave' ? 'Doctor Leave Request' : 'Doctor Schedule Change';
       const body =
         mode === 'leave'
-          ? `${doctorName} requested leave${preferDay ? ` for ${preferDay}` : ''}${
-              preferTime ? ` at ${preferTime}` : ''
+          ? `${doctorName} requested leave${
+              leaveFrom ? ` from ${leaveFrom} to ${leaveTo}` : preferDay ? ` for ${preferDay}` : ''
             }.`
           : `${doctorName} requested updated working hours${preferDay ? ` (prefer ${preferDay}` : ''}${
               preferTime ? ` · ${preferTime})` : preferDay ? ')' : ''
@@ -2769,6 +2771,9 @@ function createClinicStore(options = {}) {
         mode,
         status: 'pending',
         doctorUid: input.doctorUid || null,
+        doctorId: input.doctorId || null,
+        leaveFrom,
+        leaveTo,
         doctorName,
         branchId,
         preferDay,
@@ -2805,6 +2810,15 @@ function createClinicStore(options = {}) {
       });
 
       return { request, alert: this.hydrateManagerAlert(managerAlertsSeed[0], branchId) };
+    },
+    /** Re-load a saved request after a restart; pending ones get their manager alert back. */
+    restoreDoctorScheduleRequest(saved) {
+      if (!saved?.id || doctorScheduleRequests.some((item) => item.id === saved.id)) return;
+      if (saved.status === 'pending') {
+        this.createDoctorScheduleRequest(saved);
+      } else {
+        doctorScheduleRequests.push({ ...saved });
+      }
     },
     listDoctorScheduleRequests({ doctorUid, branchId } = {}) {
       return doctorScheduleRequests.filter((item) => {
